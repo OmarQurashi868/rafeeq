@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "AfterAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "toast-after-response",
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File ./hooks/toast.ps1"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "toast-on-alert",
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File ./hooks/toast.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}
