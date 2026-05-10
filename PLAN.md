@@ -1,0 +1,30 @@
+# Project Plan: Rafeeq CLI Assistant
+
+## Objective
+Build a personal AI assistant CLI ("Rafeeq") for the LOS Hackathon that manages notes, tasks, and reminders through natural conversation.
+
+## Phase 1: Foundation & Setup
+- **Project Structure:** Initialize a Python project with `pip` + `requirements.txt`.
+- **CLI Framework:** Use `typer` for command-line argument parsing and interactive shell mode.
+- **Storage Layer:** Implement a simple JSON-based storage for notes and tasks to ensure portability.
+- **AI Integration:** Setup the Gemini API client (using free tier) for natural language processing.
+
+## Phase 2: Core Features (Must-Haves)
+- **Conversational Engine:** Create a loop where the user can type natural language, and the agent extracts intent (e.g., "Remind me to buy milk" -> Task creation).
+- **Note Taking:** Implement commands/logic to save and categorize thoughts.
+- **Task Management:** Implement CRUD operations for tasks (create, list, update, complete).
+
+## Phase 3: Enhanced Features (Should-Haves)
+- **Intelligent Retrieval:** Use natural language to query own notes and task history.
+- **Daily Briefing:** A `brief` command that summarizes pending tasks and recent notes.
+- **Reminders:** Basic time-based alerts.
+
+## Phase 4: Refinement & Demo Prep
+- **UX Polish:** Ensure clear output, help commands, and robust error handling.
+- **Agentic Walkthrough:** Document the agentic paradigms used (planning, skills, sub-agents) for the hackathon presentation.
+- **Final Testing:** End-to-end testing of conversational flows.
+
+## Verification & Testing
+- **Unit Tests:** Test intent extraction and storage logic.
+- **Manual QA:** Verify natural language commands work as expected.
+- **GitHub Sync:** Ensure all changes are committed and pushed regularly.
