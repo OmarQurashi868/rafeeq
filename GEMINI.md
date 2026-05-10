@@ -1,6 +1,6 @@
-# Rafeeq - Personal AI Assistant CLI
+# Rafeeq - Project Overview
 
-This file contains foundational mandates for the Rafeeq project, ensuring consistency across development sessions and for all contributors.
+Rafeeq is the name of the personal AI assistant CLI being built. The agent building this project is **Gemini CLI**.
 
 ## Workspace Mandates
 
