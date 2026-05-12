@@ -3,7 +3,7 @@
 ## Objective
 Build a personal AI assistant TUI ("Rafeeq") for the LOS Hackathon that manages notes, tasks, and reminders through an immersive, full-screen terminal interface.
 
-## Phase 1: Foundation & Setup
+## Phase 1: Foundation & Setup [COMPLETE]
 - **Project Structure:** Initialize a Python project with `pip` + `requirements.txt`.
 - **TUI Framework:** Use `Textual` to build a full-screen, interactive terminal interface.
 - **TUI Design:** Design a multi-pane layout (e.g., chat area, task sidebar, status bar).
