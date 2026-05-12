@@ -7,10 +7,10 @@ Build a personal AI assistant TUI ("Rafeeq") for the LOS Hackathon that manages 
 - **Project Structure:** Initialize a Python project with `pip` + `requirements.txt`.
 - **TUI Framework:** Use `Textual` to build a full-screen, interactive terminal interface.
 - **TUI Design:** Design a multi-pane layout (e.g., chat area, task sidebar, status bar).
-- **Storage Layer:** Implement a simple JSON-based storage for notes and tasks to ensure portability.
 - **AI Integration:** Setup Gemini API access using the OpenAI-compatible client for natural language processing.
 
 ## Phase 2: Core Features (Must-Haves)
+- **Storage Layer:** Implement a simple JSON-based storage for notes and tasks to ensure portability.
 - **Conversational Engine:** Create a loop where the user can type natural language, and the agent extracts intent (e.g., "Remind me to buy milk" -> Task creation).
 - **Note Taking:** Implement commands/logic to save and categorize thoughts.
 - **Task Management:** Implement CRUD operations for tasks (create, list, update, complete).
