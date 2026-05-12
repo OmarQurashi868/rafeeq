@@ -38,6 +38,9 @@ class RafeeqApp(App):
         background: #1b1b20;
         color: #f4f2f8;
         padding: 1 2;
+        text-select: true;
+        selection-background: #d8b4fe;
+        selection-color: #111113;
         scrollbar-background: #1b1b20;
         scrollbar-color: #d8b4fe;
         scrollbar-color-hover: #e9d5ff;
@@ -62,6 +65,7 @@ class RafeeqApp(App):
     """
 
     BINDINGS = [
+        Binding("ctrl+c", "copy_selection", "Copy", show=True),
         Binding("q", "quit", "Quit", show=True),
     ]
 
@@ -70,23 +74,36 @@ class RafeeqApp(App):
         self.storage = storage
         self.ai = ai
 
+    def write_message(self, speaker: str, message: str, color: str) -> None:
+        chat_area = self.query_one("#chat_area", RichLog)
+        chat_area.write(f"[bold {color}]{speaker}:[/bold {color}] {message}")
+        chat_area.write("")
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Container(id="app_shell"):
-            yield RichLog(id="chat_area", highlight=True, markup=True)
+            yield RichLog(id="chat_area", highlight=True, markup=True, wrap=True)
             yield Input(placeholder="Talk to Rafeeq...", id="user_input")
         yield Footer()
 
     def on_mount(self) -> None:
         chat_area = self.query_one("#chat_area", RichLog)
-        chat_area.write("[bold #d8b4fe]Rafeeq:[/bold #d8b4fe] Hello! I am your personal AI assistant. How can I help you today?")
+        chat_area.allow_select = True
+        self.write_message("Rafeeq", "Hello! I am your personal AI assistant. How can I help you today?", "#d8b4fe")
         self.query_one("#user_input", Input).focus()
+
+    def action_copy_selection(self) -> None:
+        selected_text = self.screen.get_selected_text()
+        if selected_text:
+            self.copy_to_clipboard(selected_text)
+            self.notify("Copied selected text")
+        else:
+            self.notify("Select chat text first", severity="warning")
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         user_text = event.value.strip()
         if user_text:
-            chat_area = self.query_one("#chat_area", RichLog)
-            chat_area.write(f"[bold #c4b5fd]You:[/bold #c4b5fd] {user_text}")
+            self.write_message("You", user_text, "#c4b5fd")
             
             if self.ai:
                 # Use a task to avoid blocking the UI thread if possible, 
@@ -94,14 +111,13 @@ class RafeeqApp(App):
                 # For now, a simple awaitable approach or worker.
                 self.run_worker(self.get_ai_response(user_text))
             else:
-                chat_area.write("[bold red]System:[/bold red] AI Client not initialized. Please check your API key.")
+                self.write_message("System", "AI Client not initialized. Please check your API key.", "red")
             
             event.input.value = ""
 
     async def get_ai_response(self, user_text: str) -> None:
-        chat_area = self.query_one("#chat_area", RichLog)
         response = await asyncio.to_thread(self.ai.get_response, user_text)
-        chat_area.write(f"[bold #d8b4fe]Rafeeq:[/bold #d8b4fe] {response}")
+        self.write_message("Rafeeq", response, "#d8b4fe")
 
 if __name__ == "__main__":
     storage = StorageManager()
