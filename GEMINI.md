@@ -1,6 +1,6 @@
 # Rafeeq - Project Overview
 
-Rafeeq is the name of the personal AI assistant CLI being built. The agent building this project is **Gemini CLI**.
+Rafeeq is the name of the personal AI assistant TUI being built. The agent building this project is **Gemini CLI**.
 
 ## Workspace Mandates
 
@@ -8,11 +8,11 @@ Rafeeq is the name of the personal AI assistant CLI being built. The agent build
 - **Forbidden Storage:** Do NOT use global personal memory (`~/.gemini/GEMINI.md`) or private project memory for any facts or configurations related to this project. Everything must be committed to the repo to be available to all team members.
 - **Enforcement:** Before creating or updating any project-related instructions or skills, verify they are being written to a location within the current directory.
 - **Agentic Engineering:** This project is built using agentic engineering principles. Every feature, refactor, and bug fix must be executed by the AI agent through a Research -> Strategy -> Execution cycle.
-- **CLI First:** The final product is a CLI tool. Ensure all interfaces and interactions are optimized for a terminal environment.
+- **TUI First:** The final product is a full-screen TUI (Text User Interface). Ensure all interfaces and interactions are optimized for an immersive terminal environment using `Textual`.
 
 ## Project Vision (LOS Hackathon)
 
-Rafeeq is a personal AI assistant designed to act as an extension of the user's mind. It focuses on natural conversation to capture, organize, and act on the user's life.
+Rafeeq is a personal AI assistant designed to act as an extension of the user's mind. It focuses on natural conversation to capture, organize, and act on the user's life within a beautiful, immersive terminal interface.
 
 ### Core Requirements
 - **Note Taking:** Conversational capture of thoughts and ideas.
@@ -26,5 +26,6 @@ Rafeeq is a personal AI assistant designed to act as an extension of the user's 
 
 ## Tech Stack
 - **Language:** Python (for CLI ease and library support).
+- **UI Framework:** Textual (for full-screen TUI) and Rich (for terminal formatting).
 - **Storage:** Local JSON or SQLite (keep it simple and portable).
 - **AI Integration:** Gemini API (Free Tier).

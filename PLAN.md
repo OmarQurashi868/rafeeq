@@ -1,11 +1,12 @@
-# Project Plan: Rafeeq CLI Assistant
+# Project Plan: Rafeeq TUI Assistant
 
 ## Objective
-Build a personal AI assistant CLI ("Rafeeq") for the LOS Hackathon that manages notes, tasks, and reminders through natural conversation.
+Build a personal AI assistant TUI ("Rafeeq") for the LOS Hackathon that manages notes, tasks, and reminders through an immersive, full-screen terminal interface.
 
 ## Phase 1: Foundation & Setup
 - **Project Structure:** Initialize a Python project with `pip` + `requirements.txt`.
-- **CLI Framework:** Use `typer` for command-line argument parsing and interactive shell mode.
+- **TUI Framework:** Use `Textual` to build a full-screen, interactive terminal interface.
+- **TUI Design:** Design a multi-pane layout (e.g., chat area, task sidebar, status bar).
 - **Storage Layer:** Implement a simple JSON-based storage for notes and tasks to ensure portability.
 - **AI Integration:** Setup the Gemini API client (using free tier) for natural language processing.
 
