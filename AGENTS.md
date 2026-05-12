@@ -9,11 +9,12 @@ Rafeeq is a personal AI assistant TUI for the LOS Hackathon. It is intended to a
 - Keep all project-specific instructions, skills, hooks, and agent configuration inside this repository.
 - Do not store project facts or configuration in global personal memory or machine-local private project memory.
 - Before creating or updating project instructions, skills, or automation, verify the target path is inside this repo.
-- Preserve existing Gemini-specific files unless the user explicitly asks to remove them; they may still be useful to teammates using Gemini CLI.
+- Keep repo-local skills under `skills/`.
 
 ## Codex Workflow
 
-- Run `git pull` at the start of a work session when the user asks to sync or when current upstream state matters.
+- Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File hooks/session-start-git-pull.ps1` at the start of every Codex session in this directory.
+- Use the local `pull-on-session-start` skill for this startup sync workflow.
 - Use the repo-local auto-sync watcher when the user wants file changes committed and pushed automatically:
   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-sync.ps1`
 - Auto-sync stages all repo changes, creates an `Auto-commit: changes made at <timestamp>` commit, and pushes to `origin master` after changes settle.
@@ -51,10 +52,3 @@ Rafeeq is a personal AI assistant TUI for the LOS Hackathon. It is intended to a
 - Add focused unit tests for storage and intent extraction as those areas evolve.
 - Manually verify important TUI flows after UI changes.
 - Keep `.env`, `data.json`, bytecode, and local runtime artifacts out of git.
-
-## Gemini Compatibility Notes
-
-- `GEMINI.md` and `.gemini/` contain Gemini CLI-specific instructions and hooks.
-- `.gemini/hooks/git-pull.ps1` pulls from `origin master` at Gemini session start.
-- `.gemini/hooks/git-push.ps1` stages, commits, and pushes after Gemini write/replace tool calls.
-- Those hooks do not run automatically for Codex; use `scripts/auto-sync.ps1` when auto-commit and auto-push behavior is wanted.
