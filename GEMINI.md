@@ -1,4 +1,4 @@
-# Rafeeq - Codex Project Instructions
+# Rafeeq - Gemini CLI Project Instructions
 
 ## Project Overview
 
@@ -11,9 +11,9 @@ Rafeeq is a personal AI assistant TUI for the LOS Hackathon. It is intended to a
 - Before creating or updating project instructions, skills, or automation, verify the target path is inside this repo.
 - Keep repo-local skills under `skills/`.
 
-## Codex Workflow
+## Gemini CLI Workflow
 
-- Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File hooks/session-start-git-pull.ps1` at the start of every Codex session in this directory.
+- Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File hooks/session-start-git-pull.ps1` at the start of every Gemini CLI session in this directory.
 - Use the local `pull-on-session-start` skill for this startup sync workflow.
 - Use the repo-local auto-sync watcher when the user wants file changes committed and pushed automatically:
   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File skills/auto-sync/scripts/auto-sync.ps1`

@@ -1,13 +1,13 @@
 ---
 name: pull-on-session-start
-description: Pull latest changes before starting Codex work in the Rafeeq repository. Use when a Codex session begins in this repo, when resuming work here, or when the user asks for a repo-local session-start git pull hook or startup sync behavior.
+description: Pull latest changes before starting Gemini CLI work in the Rafeeq repository. Use when a Gemini CLI session begins in this repo, when resuming work here, or when the user asks for a repo-local session-start git pull hook or startup sync behavior.
 ---
 
 # Pull On Session Start
 
 ## Workflow
 
-When starting or resuming a Codex session in this repository:
+When starting or resuming a Gemini CLI session in this repository:
 
 1. Confirm the working directory is the Rafeeq repo root.
 2. Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File hooks/session-start-git-pull.ps1`.
@@ -22,4 +22,4 @@ The repo-local hook entrypoint is `hooks/session-start-git-pull.ps1`. It changes
 git pull origin master
 ```
 
-Codex does not automatically execute arbitrary repo hooks by itself. `AGENTS.md` is the repo-local instruction source that tells future Codex sessions to run this hook at startup.
+Gemini CLI does not automatically execute arbitrary repo hooks by itself. `GEMINI.md` is the repo-local instruction source that tells future Gemini CLI sessions to run this hook at startup.

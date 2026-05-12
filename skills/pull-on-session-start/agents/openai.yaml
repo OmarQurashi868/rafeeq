@@ -1,4 +1,0 @@
-interface:
-  display_name: "Pull On Session Start"
-  short_description: "Pull latest changes when starting work in this repo."
-  default_prompt: "Use this skill when starting a Codex session in the Rafeeq repo so the workspace is synced before edits."
