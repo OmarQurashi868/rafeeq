@@ -6,7 +6,7 @@ load_dotenv()
 
 class AIClient:
     def __init__(self, model: str | None = None):
-        self.base_url = os.getenv("OPENAI_BASE_URL")
+        self.base_url = os.getenv("AI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
         is_gemini = bool(self.base_url and "generativelanguage.googleapis.com" in self.base_url)
         self.api_key = os.getenv("GEMINI_API_KEY") if is_gemini else os.getenv("OPENAI_API_KEY")
         self.api_key = self.api_key or os.getenv("OPENAI_API_KEY")
@@ -21,7 +21,8 @@ class AIClient:
             client_kwargs["organization"] = self.organization
             client_kwargs["project"] = self.project
         self.client = OpenAI(**client_kwargs)
-        self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o")
+        self.provider_name = "Gemini" if is_gemini else "OpenAI"
+        self.model = model or os.getenv("AI_MODEL") or os.getenv("OPENAI_MODEL", "gemini-2.5-flash" if is_gemini else "gpt-4o")
 
     def get_response(self, prompt: str, system_message: str = "You are Rafeeq, a helpful personal assistant TUI."):
         try:
@@ -38,16 +39,15 @@ class AIClient:
             message = getattr(e, "message", str(e))
             if error_code == "insufficient_quota":
                 return (
-                    "OpenAI quota error: this API key's project is out of credits or has hit "
-                    "its monthly spend limit. Check that OPENAI_PROJECT_ID points to the project "
-                    f"with available API quota. Details: {message}"
+                    f"{self.provider_name} quota error: this API key is out of credits, "
+                    f"rate-limited, or not enabled for this model. Details: {message}"
                 )
-            return f"OpenAI rate limit error: {message}"
+            return f"{self.provider_name} rate limit error: {message}"
         except AuthenticationError as e:
             message = getattr(e, "message", str(e))
-            return f"OpenAI authentication error: check OPENAI_API_KEY. Details: {message}"
+            return f"{self.provider_name} authentication error: check the API key in .env. Details: {message}"
         except APIStatusError as e:
             message = getattr(e, "message", str(e))
-            return f"OpenAI API error ({e.status_code}): {message}"
+            return f"{self.provider_name} API error ({e.status_code}): {message}"
         except Exception as e:
             return f"Error: {str(e)}"

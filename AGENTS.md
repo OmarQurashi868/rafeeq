@@ -37,7 +37,7 @@ Rafeeq is a personal AI assistant TUI for the LOS Hackathon. It is intended to a
 - Python
 - Textual
 - Rich
-- OpenAI API, currently using `gpt-4o`
+- Gemini API via the OpenAI-compatible Python client, currently using `gemini-2.5-flash`
 - Local JSON storage
 
 ## Feature Priorities
