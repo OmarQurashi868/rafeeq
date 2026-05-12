@@ -15,7 +15,7 @@ function Get-CommitSummary {
     }
 
     $topLevelNames = $ChangedFiles |
-        ForEach-Object { ($_ -split "/|\\")[0] } |
+        ForEach-Object { ($_ -split "[/\\]")[0] } |
         Sort-Object -Unique
 
     if ($topLevelNames.Count -eq 1) {
