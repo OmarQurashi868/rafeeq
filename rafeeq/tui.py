@@ -38,9 +38,6 @@ class RafeeqApp(App):
         background: #1b1b20;
         color: #f4f2f8;
         padding: 1 2;
-        text-select: true;
-        selection-background: #d8b4fe;
-        selection-color: #111113;
         scrollbar-background: #1b1b20;
         scrollbar-color: #d8b4fe;
         scrollbar-color-hover: #e9d5ff;
