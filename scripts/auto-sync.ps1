@@ -1,0 +1,91 @@
+param(
+    [int]$DebounceSeconds = 5,
+    [string]$Branch = "master"
+)
+
+$ErrorActionPreference = "Stop"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+Set-Location $repoRoot
+
+function Invoke-AutoSync {
+    $status = git status --porcelain
+    if (-not $status) {
+        return
+    }
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    git add .
+
+    $staged = git diff --cached --name-only
+    if (-not $staged) {
+        return
+    }
+
+    git commit -m "Auto-commit: changes made at $timestamp"
+    git push origin $Branch
+}
+
+$watcher = New-Object System.IO.FileSystemWatcher
+$watcher.Path = $repoRoot
+$watcher.IncludeSubdirectories = $true
+$watcher.EnableRaisingEvents = $true
+
+$ignoredDirectories = @(
+    "$([IO.Path]::DirectorySeparatorChar).git$([IO.Path]::DirectorySeparatorChar)",
+    "$([IO.Path]::DirectorySeparatorChar)__pycache__$([IO.Path]::DirectorySeparatorChar)"
+)
+
+$pending = $false
+$lastChange = Get-Date
+
+$action = {
+    $path = $Event.SourceEventArgs.FullPath
+    foreach ($ignored in $Event.MessageData.IgnoredDirectories) {
+        if ($path.Contains($ignored)) {
+            return
+        }
+    }
+
+    $Event.MessageData.State.Pending = $true
+    $Event.MessageData.State.LastChange = Get-Date
+}
+
+$state = [pscustomobject]@{
+    Pending = $pending
+    LastChange = $lastChange
+}
+
+$messageData = [pscustomobject]@{
+    IgnoredDirectories = $ignoredDirectories
+    State = $state
+}
+
+$subscriptions = @(
+    Register-ObjectEvent -InputObject $watcher -EventName Changed -Action $action -MessageData $messageData
+    Register-ObjectEvent -InputObject $watcher -EventName Created -Action $action -MessageData $messageData
+    Register-ObjectEvent -InputObject $watcher -EventName Deleted -Action $action -MessageData $messageData
+    Register-ObjectEvent -InputObject $watcher -EventName Renamed -Action $action -MessageData $messageData
+)
+
+Write-Host "Auto-sync watcher running for $repoRoot. Press Ctrl+C to stop."
+
+try {
+    while ($true) {
+        Start-Sleep -Seconds 1
+        if ($state.Pending -and ((Get-Date) - $state.LastChange).TotalSeconds -ge $DebounceSeconds) {
+            $state.Pending = $false
+            try {
+                Invoke-AutoSync
+            }
+            catch {
+                Write-Error "Auto-sync failed: $_"
+            }
+        }
+    }
+}
+finally {
+    foreach ($subscription in $subscriptions) {
+        Unregister-Event -SubscriptionId $subscription.Id -ErrorAction SilentlyContinue
+    }
+    $watcher.Dispose()
+}
