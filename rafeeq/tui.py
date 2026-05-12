@@ -84,8 +84,6 @@ class RafeeqApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        chat_area = self.query_one("#chat_area", RichLog)
-        chat_area.allow_select = True
         self.write_message("Rafeeq", "Hello! I am your personal AI assistant. How can I help you today?", "#d8b4fe")
         self.query_one("#user_input", Input).focus()
 
