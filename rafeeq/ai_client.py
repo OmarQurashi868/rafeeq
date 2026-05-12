@@ -6,16 +6,21 @@ load_dotenv()
 
 class AIClient:
     def __init__(self, model: str | None = None):
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.base_url = os.getenv("OPENAI_BASE_URL")
+        is_gemini = bool(self.base_url and "generativelanguage.googleapis.com" in self.base_url)
+        self.api_key = os.getenv("GEMINI_API_KEY") if is_gemini else os.getenv("OPENAI_API_KEY")
+        self.api_key = self.api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key or self.api_key == "your_api_key_here":
-            raise ValueError("OPENAI_API_KEY not found in environment variables.")
+            raise ValueError("API key not found. Set GEMINI_API_KEY for Gemini or OPENAI_API_KEY for OpenAI.")
         self.organization = os.getenv("OPENAI_ORG_ID") or os.getenv("OPENAI_ORGANIZATION")
         self.project = os.getenv("OPENAI_PROJECT_ID")
-        self.client = OpenAI(
-            api_key=self.api_key,
-            organization=self.organization,
-            project=self.project,
-        )
+        client_kwargs = {"api_key": self.api_key}
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
+        if not is_gemini:
+            client_kwargs["organization"] = self.organization
+            client_kwargs["project"] = self.project
+        self.client = OpenAI(**client_kwargs)
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o")
 
     def get_response(self, prompt: str, system_message: str = "You are Rafeeq, a helpful personal assistant TUI."):
