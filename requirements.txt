@@ -1,0 +1,4 @@
+textual
+openai
+python-dotenv
+rich

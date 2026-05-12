@@ -15,5 +15,8 @@ Rafeeq is an immersive, full-screen AI assistant for the terminal. Built for the
 ## Tech Stack
 - **Python**
 - **Textual** & **Rich**
-- **Gemini API**
-- **SQLite/JSON**
+- **OpenAI API (GPT-4o)**
+- **JSON Storage**
+
+## Current Status
+- **Phase 1 Complete**: Foundation, Storage, AI Integration, and TUI Layout.
