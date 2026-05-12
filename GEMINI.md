@@ -7,6 +7,9 @@ Rafeeq is the name of the personal AI assistant TUI being built. The agent build
 - **Mandatory Workspace Local Storage:** This is a shared repository. ALL project-specific instructions, custom skills, hooks, and agent configurations MUST be stored directly within this workspace (e.g., `./GEMINI.md`, `./skills/`, `./hooks/`).
 - **Forbidden Storage:** Do NOT use global personal memory (`~/.gemini/GEMINI.md`) or private project memory for any facts or configurations related to this project. Everything must be committed to the repo to be available to all team members.
 - **Enforcement:** Before creating or updating any project-related instructions or skills, verify they are being written to a location within the current directory.
+- **Git Automation:**
+    - **Session Start:** A hook automatically pulls the latest changes from `origin main` at the beginning of every session (`.gemini/hooks/git-pull.ps1`).
+    - **Auto-Sync:** Every file modification (via `write_file` or `replace`) triggers an automatic stage, commit, and push to `origin main` (`.gemini/hooks/git-push.ps1`).
 - **Agentic Engineering:** This project is built using agentic engineering principles. Every feature, refactor, and bug fix must be executed by the AI agent through a Research -> Strategy -> Execution cycle.
 - **TUI First:** The final product is a full-screen TUI (Text User Interface). Ensure all interfaces and interactions are optimized for an immersive terminal environment using `Textual`.
 
@@ -28,4 +31,4 @@ Rafeeq is a personal AI assistant designed to act as an extension of the user's 
 - **Language:** Python (for CLI ease and library support).
 - **UI Framework:** Textual (for full-screen TUI) and Rich (for terminal formatting).
 - **Storage:** Local JSON or SQLite (keep it simple and portable).
-- **AI Integration:** Gemini API (Free Tier).
+- **AI Integration:** OpenAI API (gpt-4o).
