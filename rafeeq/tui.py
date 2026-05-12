@@ -1,6 +1,7 @@
+import asyncio
+
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Input, RichLog
-from textual.containers import Vertical
 from textual.binding import Binding
 
 from rafeeq.storage import StorageManager
@@ -59,7 +60,7 @@ class RafeeqApp(App):
 
     async def get_ai_response(self, user_text: str) -> None:
         chat_area = self.query_one("#chat_area", RichLog)
-        response = await self.run_in_thread(self.ai.get_response, user_text)
+        response = await asyncio.to_thread(self.ai.get_response, user_text)
         chat_area.write(f"[bold green]Rafeeq:[/bold green] {response}")
 
 if __name__ == "__main__":
