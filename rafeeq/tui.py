@@ -1,7 +1,7 @@
 import asyncio
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Input, RichLog
+from textual.widgets import Input, RichLog, Static
 from textual.containers import Container
 from textual.binding import Binding
 
@@ -15,28 +15,29 @@ class RafeeqApp(App):
         color: #f4f2f8;
     }
 
-    Header {
-        background: #18181c;
-        color: #d8b4fe;
-        text-style: bold;
-    }
-
-    Footer {
-        background: #18181c;
-        color: #bdb7c8;
-    }
-
     #app_shell {
         height: 1fr;
-        padding: 1 2;
+        padding: 1 3;
         background: #111113;
+    }
+
+    #top_bar {
+        height: 3;
+        margin-bottom: 1;
+        padding: 0 2;
+        border: round #3a3344;
+        background: #18181d;
+        color: #d8b4fe;
+        text-style: bold;
+        content-align: left middle;
     }
 
     RichLog {
         height: 1fr;
-        border: round #d8b4fe;
+        border: round #5b4b70;
         background: #1b1b20;
         color: #f4f2f8;
+        margin-bottom: 1;
         padding: 1 2;
         scrollbar-background: #1b1b20;
         scrollbar-color: #d8b4fe;
@@ -45,7 +46,6 @@ class RafeeqApp(App):
     
     Input {
         height: 3;
-        margin-top: 1;
         border: round #4b4258;
         background: #202027;
         color: #f4f2f8;
@@ -58,6 +58,16 @@ class RafeeqApp(App):
 
     Input > .input--placeholder {
         color: #8b8495;
+    }
+
+    #bottom_bar {
+        height: 3;
+        margin-top: 1;
+        padding: 0 2;
+        border: round #2d2934;
+        background: #18181d;
+        color: #bdb7c8;
+        content-align: left middle;
     }
     """
 
@@ -77,11 +87,11 @@ class RafeeqApp(App):
         chat_area.write("")
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
         with Container(id="app_shell"):
+            yield Static("Rafeeq  |  Personal assistant", id="top_bar")
             yield RichLog(id="chat_area", highlight=True, markup=True, wrap=True)
             yield Input(placeholder="Talk to Rafeeq...", id="user_input")
-        yield Footer()
+            yield Static("Ctrl+C copy selected text  |  Q quit", id="bottom_bar")
 
     def on_mount(self) -> None:
         self.write_message("Rafeeq", "Hello! I am your personal AI assistant. How can I help you today?", "#d8b4fe")
