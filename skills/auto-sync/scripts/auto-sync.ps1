@@ -4,8 +4,30 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 Set-Location $repoRoot
+
+function Get-CommitSummary {
+    param([string[]]$ChangedFiles)
+
+    if ($ChangedFiles.Count -eq 0) {
+        return "Auto-sync repository changes"
+    }
+
+    $topLevelNames = $ChangedFiles |
+        ForEach-Object { ($_ -split "/|\\")[0] } |
+        Sort-Object -Unique
+
+    if ($topLevelNames.Count -eq 1) {
+        return "Update $($topLevelNames[0])"
+    }
+
+    if ($topLevelNames.Count -le 3) {
+        return "Update $($topLevelNames -join ', ')"
+    }
+
+    return "Update project files"
+}
 
 function Invoke-AutoSync {
     $status = git status --porcelain
@@ -13,15 +35,15 @@ function Invoke-AutoSync {
         return
     }
 
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     git add .
 
-    $staged = git diff --cached --name-only
-    if (-not $staged) {
+    $staged = @(git diff --cached --name-only)
+    if ($staged.Count -eq 0) {
         return
     }
 
-    git commit -m "Auto-commit: changes made at $timestamp"
+    $summary = Get-CommitSummary -ChangedFiles $staged
+    git commit -m $summary
     git push origin $Branch
 }
 
@@ -35,8 +57,10 @@ $ignoredDirectories = @(
     "$([IO.Path]::DirectorySeparatorChar)__pycache__$([IO.Path]::DirectorySeparatorChar)"
 )
 
-$pending = $false
-$lastChange = Get-Date
+$state = [pscustomobject]@{
+    Pending = $false
+    LastChange = Get-Date
+}
 
 $action = {
     $path = $Event.SourceEventArgs.FullPath
@@ -48,11 +72,6 @@ $action = {
 
     $Event.MessageData.State.Pending = $true
     $Event.MessageData.State.LastChange = Get-Date
-}
-
-$state = [pscustomobject]@{
-    Pending = $pending
-    LastChange = $lastChange
 }
 
 $messageData = [pscustomobject]@{

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Auto Sync"
+  short_description: "Watch repo changes and commit/push them automatically."
+  default_prompt: "Use this skill when enabling repo-local auto-sync for Rafeeq changes."

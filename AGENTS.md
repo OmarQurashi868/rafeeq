@@ -16,8 +16,10 @@ Rafeeq is a personal AI assistant TUI for the LOS Hackathon. It is intended to a
 - Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File hooks/session-start-git-pull.ps1` at the start of every Codex session in this directory.
 - Use the local `pull-on-session-start` skill for this startup sync workflow.
 - Use the repo-local auto-sync watcher when the user wants file changes committed and pushed automatically:
-  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-sync.ps1`
-- Auto-sync stages all repo changes, creates an `Auto-commit: changes made at <timestamp>` commit, and pushes to `origin master` after changes settle.
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File skills/auto-sync/scripts/auto-sync.ps1`
+- Use the local `auto-sync` skill when changing auto-sync behavior.
+- Auto-sync stages all repo changes, creates a short summary commit message based on changed paths, and pushes to `origin master` after changes settle.
+- Commit messages should be short summaries of the change. Do not use timestamp-only commit messages.
 - Use a Research -> Strategy -> Execution cycle for feature work, refactors, and bug fixes:
   - Research: read the relevant docs, code, and current behavior.
   - Strategy: choose the smallest coherent plan that fits the existing codebase.
