@@ -14,9 +14,12 @@ function Get-CommitSummary {
         return "Auto-sync repository changes"
     }
 
-    $topLevelNames = $ChangedFiles |
-        ForEach-Object { ($_ -split "[/\\]")[0] } |
-        Sort-Object -Unique
+    $topLevelNames = @()
+    foreach ($file in $ChangedFiles) {
+        $normalized = ([string]$file) -replace "\\", "/"
+        $topLevelNames += ($normalized.Split("/"))[0]
+    }
+    $topLevelNames = $topLevelNames | Sort-Object -Unique
 
     if ($topLevelNames.Count -eq 1) {
         return "Update $($topLevelNames[0])"

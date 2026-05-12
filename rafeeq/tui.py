@@ -1,8 +1,8 @@
 import asyncio
 
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header, Input, TextArea
-from textual.containers import Container
+from textual.widgets import Footer, Header, Markdown, TextArea
+from textual.containers import Container, VerticalScroll
 from textual.binding import Binding
 
 from rafeeq.storage import StorageManager
@@ -32,7 +32,7 @@ class RafeeqApp(App):
         background: #111113;
     }
 
-    TextArea {
+    #chat_area {
         height: 1fr;
         border: round #d8b4fe;
         background: #1b1b20;
@@ -43,12 +43,27 @@ class RafeeqApp(App):
         scrollbar-color-hover: #e9d5ff;
     }
 
-    TextArea:focus {
+    #chat_area:focus {
         border: round #e9d5ff;
     }
-    
-    Input {
-        height: 3;
+
+    .message {
+        width: 100%;
+        margin-bottom: 1;
+        padding: 0 1;
+        background: #1b1b20;
+    }
+
+    .assistant-message {
+        color: #f4f2f8;
+    }
+
+    .user-message {
+        color: #9b94a8;
+    }
+
+    #message_input {
+        height: 5;
         margin-top: 1;
         border: round #4b4258;
         background: #202027;
@@ -56,13 +71,10 @@ class RafeeqApp(App):
         padding: 0 1;
     }
 
-    Input:focus {
+    #message_input:focus {
         border: round #d8b4fe;
     }
 
-    Input > .input--placeholder {
-        color: #8b8495;
-    }
     """
 
     BINDINGS = [
@@ -74,32 +86,28 @@ class RafeeqApp(App):
         super().__init__(**kwargs)
         self.storage = storage
         self.ai = ai
-        self.chat_transcript = ""
 
-    def write_message(self, speaker: str, message: str, color: str) -> None:
-        chat_area = self.query_one("#chat_area", TextArea)
-        self.chat_transcript += f"{speaker}: {message}\n\n"
-        chat_area.load_text(self.chat_transcript)
-        chat_area.move_cursor(chat_area.document.end)
+    def write_message(self, message: str, message_class: str) -> None:
+        chat_area = self.query_one("#chat_area", VerticalScroll)
+        chat_area.mount(Markdown(message, classes=f"message {message_class}", open_links=False))
         chat_area.scroll_end(animate=False)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Container(id="app_shell"):
+            yield VerticalScroll(id="chat_area")
             yield TextArea(
                 "",
-                id="chat_area",
-                read_only=True,
-                show_cursor=False,
+                id="message_input",
                 show_line_numbers=False,
                 soft_wrap=True,
+                placeholder="Talk to Rafeeq...",
             )
-            yield Input(placeholder="Talk to Rafeeq...", id="user_input")
         yield Footer()
 
     def on_mount(self) -> None:
-        self.write_message("Rafeeq", "Hello! I am your personal AI assistant. How can I help you today?", "#d8b4fe")
-        self.query_one("#user_input", Input).focus()
+        self.write_message("Hello! I am your personal AI assistant. How can I help you today?", "assistant-message")
+        self.query_one("#message_input", TextArea).focus()
 
     def action_copy_selection(self) -> None:
         selected_text = self.screen.get_selected_text()
@@ -109,24 +117,38 @@ class RafeeqApp(App):
         else:
             self.notify("Select chat text first", severity="warning")
 
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
-        user_text = event.value.strip()
+    async def on_key(self, event) -> None:
+        focused = self.focused
+        if not isinstance(focused, TextArea) or focused.id != "message_input":
+            return
+
+        if event.key == "shift+enter":
+            event.prevent_default()
+            event.stop()
+            focused.insert("\n")
+            return
+
+        if event.key == "enter":
+            event.prevent_default()
+            event.stop()
+            await self.submit_user_message()
+
+    async def submit_user_message(self) -> None:
+        message_input = self.query_one("#message_input", TextArea)
+        user_text = message_input.text.strip()
         if user_text:
-            self.write_message("You", user_text, "#c4b5fd")
+            self.write_message(user_text, "user-message")
             
             if self.ai:
-                # Use a task to avoid blocking the UI thread if possible, 
-                # although Textual's worker is better for this.
-                # For now, a simple awaitable approach or worker.
                 self.run_worker(self.get_ai_response(user_text))
             else:
-                self.write_message("System", "AI Client not initialized. Please check your API key.", "red")
+                self.write_message("AI Client not initialized. Please check your API key.", "assistant-message")
             
-            event.input.value = ""
+            message_input.clear()
 
     async def get_ai_response(self, user_text: str) -> None:
         response = await asyncio.to_thread(self.ai.get_response, user_text)
-        self.write_message("Rafeeq", response, "#d8b4fe")
+        self.write_message(response, "assistant-message")
 
 if __name__ == "__main__":
     storage = StorageManager()
