@@ -4,9 +4,32 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Markdown, TextArea
 from textual.containers import Container, VerticalScroll
 from textual.binding import Binding
+from textual.message import Message
 
 from rafeeq.storage import StorageManager
 from rafeeq.ai_client import AIClient
+
+class MessageInput(TextArea):
+    BINDINGS = [
+        Binding("enter", "submit", show=False, priority=True),
+        Binding("shift+enter", "newline", show=False, priority=True),
+    ]
+
+    class Submitted(Message):
+        pass
+
+    def action_submit(self) -> None:
+        self.post_message(self.Submitted())
+
+    def action_newline(self) -> None:
+        self.insert("\n")
+
+    def on_text_area_changed(self) -> None:
+        self.fit_content_height()
+
+    def fit_content_height(self) -> None:
+        line_count = max(1, self.text.count("\n") + 1)
+        self.styles.height = min(6, line_count + 2)
 
 class RafeeqApp(App):
     CSS = """
@@ -63,7 +86,7 @@ class RafeeqApp(App):
     }
 
     #message_input {
-        height: 5;
+        height: 3;
         margin-top: 1;
         border: round #4b4258;
         background: #202027;
@@ -96,7 +119,7 @@ class RafeeqApp(App):
         yield Header(show_clock=True)
         with Container(id="app_shell"):
             yield VerticalScroll(id="chat_area")
-            yield TextArea(
+            yield MessageInput(
                 "",
                 id="message_input",
                 show_line_numbers=False,
@@ -114,27 +137,12 @@ class RafeeqApp(App):
         if selected_text:
             self.copy_to_clipboard(selected_text)
             self.notify("Copied selected text")
-        else:
-            self.notify("Select chat text first", severity="warning")
 
-    async def on_key(self, event) -> None:
-        focused = self.focused
-        if not isinstance(focused, TextArea) or focused.id != "message_input":
-            return
-
-        if event.key == "shift+enter":
-            event.prevent_default()
-            event.stop()
-            focused.insert("\n")
-            return
-
-        if event.key == "enter":
-            event.prevent_default()
-            event.stop()
-            await self.submit_user_message()
+    async def on_message_input_submitted(self) -> None:
+        await self.submit_user_message()
 
     async def submit_user_message(self) -> None:
-        message_input = self.query_one("#message_input", TextArea)
+        message_input = self.query_one("#message_input", MessageInput)
         user_text = message_input.text.strip()
         if user_text:
             self.write_message(user_text, "user-message")
@@ -145,6 +153,7 @@ class RafeeqApp(App):
                 self.write_message("AI Client not initialized. Please check your API key.", "assistant-message")
             
             message_input.clear()
+            message_input.fit_content_height()
 
     async def get_ai_response(self, user_text: str) -> None:
         response = await asyncio.to_thread(self.ai.get_response, user_text)
