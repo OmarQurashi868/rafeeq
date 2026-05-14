@@ -25,6 +25,8 @@ When the user wants to see their notes:
 - Include `[LIST_NOTES]` in your response.
 When the user wants to see their tasks:
 - Include `[LIST_TASKS]` in your response.
+When the user wants to mark a task as completed or done:
+- Include `[COMPLETE_TASK: <title>]` in your response.
 """
 
 class MessageInput(TextArea):
@@ -189,6 +191,7 @@ class RafeeqApp(App):
         # Regex patterns for markers
         note_pattern = r"\[SAVE_NOTE:\s*(.*?)\]"
         task_pattern = r"\[ADD_TASK:\s*(.*?)(?:\s*\|\s*DUE:\s*(.*?))?\]"
+        complete_task_pattern = r"\[COMPLETE_TASK:\s*(.*?)\]"
         list_notes_pattern = r"\[LIST_NOTES\]"
         list_tasks_pattern = r"\[LIST_TASKS\]"
 
@@ -208,6 +211,14 @@ class RafeeqApp(App):
             if due_date:
                 msg += f" (Due: {due_date})"
             confirmations.append(msg)
+
+        # Handle COMPLETE_TASK
+        completions = re.findall(complete_task_pattern, text)
+        for title in completions:
+            if self.storage.complete_task(title):
+                confirmations.append(f"✅ **Task completed:** {title}")
+            else:
+                confirmations.append(f"❌ **Task not found:** {title}")
 
         # Handle LIST_NOTES
         if re.search(list_notes_pattern, text):
@@ -236,6 +247,7 @@ class RafeeqApp(App):
         # Clean up markers from the final text
         text = re.sub(note_pattern, "", text)
         text = re.sub(task_pattern, "", text)
+        text = re.sub(complete_task_pattern, "", text)
         text = re.sub(list_notes_pattern, "", text)
         text = re.sub(list_tasks_pattern, "", text)
 

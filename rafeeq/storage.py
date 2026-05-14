@@ -48,3 +48,13 @@ class StorageManager:
 
     def get_tasks(self) -> List[Dict[str, Any]]:
         return self.data.get("tasks", [])
+
+    def complete_task(self, title: str) -> bool:
+        updated = False
+        for task in self.data.get("tasks", []):
+            if task["title"].lower() == title.lower():
+                task["completed"] = True
+                updated = True
+        if updated:
+            self.save()
+        return updated
