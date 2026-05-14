@@ -1,5 +1,6 @@
 import asyncio
 import re
+from datetime import datetime
 
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Markdown, TextArea
@@ -17,7 +18,9 @@ Avoid general-purpose chatter; stay focused on being the user's external brain.
 When the user wants to save a note or remember something:
 - Include `[SAVE_NOTE: <content>]` in your response.
 When the user wants to add a task or to-do item:
-- Include `[ADD_TASK: <title>]` in your response.
+- Include `[ADD_TASK: <title> | DUE: <YYYY-MM-DD HH:MM>]` in your response. 
+- The `| DUE: ...` part is optional; only include it if the user specifies a time or date.
+- Use the current context provided to resolve relative dates like 'tomorrow' or 'next week'.
 When the user wants to see their notes:
 - Include `[LIST_NOTES]` in your response.
 When the user wants to see their tasks:
@@ -172,18 +175,20 @@ class RafeeqApp(App):
             message_input.fit_content_height()
 
     async def get_ai_response(self, user_text: str) -> None:
-        response = await asyncio.to_thread(self.ai.get_response, user_text, system_message=SYSTEM_PROMPT)
-        
+        current_time = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+        dynamic_system_prompt = f"{SYSTEM_PROMPT}\n\nCurrent context: The date and time is {current_time}."
+
+        response = await asyncio.to_thread(self.ai.get_response, user_text, system_message=dynamic_system_prompt)      
+
         # Process intents and clean response
         clean_response = self.process_ai_intent(response)
-        
         if clean_response:
             self.write_message(clean_response, "assistant-message")
 
     def process_ai_intent(self, text: str) -> str:
         # Regex patterns for markers
         note_pattern = r"\[SAVE_NOTE:\s*(.*?)\]"
-        task_pattern = r"\[ADD_TASK:\s*(.*?)\]"
+        task_pattern = r"\[ADD_TASK:\s*(.*?)(?:\s*\|\s*DUE:\s*(.*?))?\]"
         list_notes_pattern = r"\[LIST_NOTES\]"
         list_tasks_pattern = r"\[LIST_TASKS\]"
 
@@ -195,9 +200,12 @@ class RafeeqApp(App):
 
         # Handle ADD_TASK
         tasks = re.findall(task_pattern, text)
-        for title in tasks:
-            self.storage.add_task(Task(title=title))
-            self.notify(f"Task added", severity="information")
+        for title, due_date in tasks:
+            self.storage.add_task(Task(title=title, due_date=due_date or None))
+            msg = f"Task added: {title}"
+            if due_date:
+                msg += f" (Due: {due_date})"
+            self.notify(msg, severity="information")
 
         # Handle LIST_NOTES
         if re.search(list_notes_pattern, text):
@@ -205,7 +213,7 @@ class RafeeqApp(App):
             if not all_notes:
                 text += "\n\n*No notes found.*"
             else:
-                notes_list = "\n".join([f"- {n['content']} *({n['timestamp'][:10]})*" for n in all_notes])
+                notes_list = "\n".join([f"- {n['content']} *({n['timestamp'][:10]})*" for n in all_notes])     
                 text += f"\n\n### Your Notes\n{notes_list}"
 
         # Handle LIST_TASKS
@@ -214,8 +222,14 @@ class RafeeqApp(App):
             if not all_tasks:
                 text += "\n\n*No tasks found.*"
             else:
-                tasks_list = "\n".join([f"- [{'x' if t['completed'] else ' '}] {t['title']}" for t in all_tasks])
-                text += f"\n\n### Your Tasks\n{tasks_list}"
+                tasks_list = []
+                for t in all_tasks:
+                    line = f"- [{'x' if t['completed'] else ' '}] {t['title']}"
+                    if t.get('due_date'):
+                        line += f" * (Due: {t['due_date']})*"
+                    tasks_list.append(line)
+
+                text += f"\n\n### Your Tasks\n" + "\n".join(tasks_list)
 
         # Clean up markers from the final text
         text = re.sub(note_pattern, "", text)
@@ -224,7 +238,6 @@ class RafeeqApp(App):
         text = re.sub(list_tasks_pattern, "", text)
 
         return text.strip()
-
 if __name__ == "__main__":
     storage = StorageManager()
     try:
