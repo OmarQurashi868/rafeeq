@@ -192,20 +192,22 @@ class RafeeqApp(App):
         list_notes_pattern = r"\[LIST_NOTES\]"
         list_tasks_pattern = r"\[LIST_TASKS\]"
 
+        confirmations = []
+
         # Handle SAVE_NOTE
         notes = re.findall(note_pattern, text)
         for content in notes:
             self.storage.add_note(Note(content=content))
-            self.notify(f"Note saved", severity="information")
+            confirmations.append(f"✅ **Note saved:** {content}")
 
         # Handle ADD_TASK
         tasks = re.findall(task_pattern, text)
         for title, due_date in tasks:
             self.storage.add_task(Task(title=title, due_date=due_date or None))
-            msg = f"Task added: {title}"
+            msg = f"✅ **Task added:** {title}"
             if due_date:
                 msg += f" (Due: {due_date})"
-            self.notify(msg, severity="information")
+            confirmations.append(msg)
 
         # Handle LIST_NOTES
         if re.search(list_notes_pattern, text):
@@ -237,7 +239,15 @@ class RafeeqApp(App):
         text = re.sub(list_notes_pattern, "", text)
         text = re.sub(list_tasks_pattern, "", text)
 
-        return text.strip()
+        text = text.strip()
+
+        # Append confirmations at the end
+        if confirmations:
+            if text:
+                text += "\n\n"
+            text += "\n".join(confirmations)
+
+        return text
 if __name__ == "__main__":
     storage = StorageManager()
     try:
