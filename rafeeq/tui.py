@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Markdown, TextArea
@@ -6,10 +7,25 @@ from textual.containers import Container, VerticalScroll
 from textual.binding import Binding
 from textual.message import Message
 
-from rafeeq.storage import StorageManager
+from rafeeq.storage import StorageManager, Note, Task
 from rafeeq.ai_client import AIClient
 
+SYSTEM_PROMPT = """You are Rafeeq, a focused personal assistant dedicated to note-taking and life organization.
+Your goal is to be concise, helpful, and proactive in capturing information.
+Avoid general-purpose chatter; stay focused on being the user's external brain.
+
+When the user wants to save a note or remember something:
+- Include `[SAVE_NOTE: <content>]` in your response.
+When the user wants to add a task or to-do item:
+- Include `[ADD_TASK: <title>]` in your response.
+When the user wants to see their notes:
+- Include `[LIST_NOTES]` in your response.
+When the user wants to see their tasks:
+- Include `[LIST_TASKS]` in your response.
+"""
+
 class MessageInput(TextArea):
+# ... (rest of the class)
     BINDINGS = [
         Binding("enter", "submit", show=False, priority=True),
         Binding("shift+enter", "newline", show=False, priority=True),
@@ -156,8 +172,58 @@ class RafeeqApp(App):
             message_input.fit_content_height()
 
     async def get_ai_response(self, user_text: str) -> None:
-        response = await asyncio.to_thread(self.ai.get_response, user_text)
-        self.write_message(response, "assistant-message")
+        response = await asyncio.to_thread(self.ai.get_response, user_text, system_message=SYSTEM_PROMPT)
+        
+        # Process intents and clean response
+        clean_response = self.process_ai_intent(response)
+        
+        if clean_response:
+            self.write_message(clean_response, "assistant-message")
+
+    def process_ai_intent(self, text: str) -> str:
+        # Regex patterns for markers
+        note_pattern = r"\[SAVE_NOTE:\s*(.*?)\]"
+        task_pattern = r"\[ADD_TASK:\s*(.*?)\]"
+        list_notes_pattern = r"\[LIST_NOTES\]"
+        list_tasks_pattern = r"\[LIST_TASKS\]"
+
+        # Handle SAVE_NOTE
+        notes = re.findall(note_pattern, text)
+        for content in notes:
+            self.storage.add_note(Note(content=content))
+            self.notify(f"Note saved", severity="information")
+
+        # Handle ADD_TASK
+        tasks = re.findall(task_pattern, text)
+        for title in tasks:
+            self.storage.add_task(Task(title=title))
+            self.notify(f"Task added", severity="information")
+
+        # Handle LIST_NOTES
+        if re.search(list_notes_pattern, text):
+            all_notes = self.storage.get_notes()
+            if not all_notes:
+                text += "\n\n*No notes found.*"
+            else:
+                notes_list = "\n".join([f"- {n['content']} *({n['timestamp'][:10]})*" for n in all_notes])
+                text += f"\n\n### Your Notes\n{notes_list}"
+
+        # Handle LIST_TASKS
+        if re.search(list_tasks_pattern, text):
+            all_tasks = self.storage.get_tasks()
+            if not all_tasks:
+                text += "\n\n*No tasks found.*"
+            else:
+                tasks_list = "\n".join([f"- [{'x' if t['completed'] else ' '}] {t['title']}" for t in all_tasks])
+                text += f"\n\n### Your Tasks\n{tasks_list}"
+
+        # Clean up markers from the final text
+        text = re.sub(note_pattern, "", text)
+        text = re.sub(task_pattern, "", text)
+        text = re.sub(list_notes_pattern, "", text)
+        text = re.sub(list_tasks_pattern, "", text)
+
+        return text.strip()
 
 if __name__ == "__main__":
     storage = StorageManager()
