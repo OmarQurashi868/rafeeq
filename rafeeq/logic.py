@@ -17,6 +17,7 @@ def execute_intents(text: str, storage: StorageManager) -> Tuple[str, List[str]]
     list_tasks_pattern = r"\[LIST_TASKS\]"
     search_pattern = r"\[SEARCH:\s*(.*?)\]"
     brief_pattern = r"\[DAILY_BRIEF\]"
+    task_brief_pattern = r"\[TASK_BRIEF\]"
 
     observations = []
 
@@ -131,6 +132,16 @@ def execute_intents(text: str, storage: StorageManager) -> Tuple[str, List[str]]
             brief_text += f"Recent Notes:\n{notes_list}"
         observations.append(brief_text)
 
+    # Handle TASK_BRIEF
+    if re.search(task_brief_pattern, text):
+        summary = storage.get_daily_summary()
+        brief_text = f"Task Briefing:\n"
+        brief_text += f"Pending tasks: {summary['pending_tasks_count']}\n"
+        if summary["pending_tasks"]:
+            tasks_list = "\n".join([f"- `[{t['id']}]` {t['title']}" for t in summary["pending_tasks"]])
+            brief_text += f"Current Pending Tasks:\n{tasks_list}"
+        observations.append(brief_text)
+
     # Clean up markers from the final text
     text = re.sub(note_pattern, "", text)
     text = re.sub(update_note_pattern, "", text)
@@ -143,5 +154,6 @@ def execute_intents(text: str, storage: StorageManager) -> Tuple[str, List[str]]
     text = re.sub(list_tasks_pattern, "", text)
     text = re.sub(search_pattern, "", text)
     text = re.sub(brief_pattern, "", text)
+    text = re.sub(task_brief_pattern, "", text)
 
     return text.strip(), observations

@@ -7,10 +7,57 @@ from textual.widgets import Footer, Header, Markdown, TextArea
 from textual.containers import Container, VerticalScroll, Horizontal
 from textual.binding import Binding
 from textual.message import Message
+from textual.theme import Theme
 
 from rafeeq.storage import StorageManager, Note, Task
 from rafeeq.ai_client import AIClient
 from rafeeq.logic import execute_intents
+
+# Theme definitions
+AMETHYST = Theme(
+    name="amethyst",
+    primary="#d8b4fe",
+    secondary="#18181c",
+    accent="#e9d5ff",
+    foreground="#f4f2f8",
+    background="#111113",
+    success="#4ade80",
+    warning="#fbbf24",
+    error="#f87171",
+    surface="#1b1b20",
+    panel="#4b4258",
+    dark=True,
+)
+
+EMERALD = Theme(
+    name="emerald",
+    primary="#6ee7b7",
+    secondary="#064e3b",
+    accent="#a7f3d0",
+    foreground="#ecfdf5",
+    background="#06100d",
+    success="#10b981",
+    warning="#f59e0b",
+    error="#ef4444",
+    surface="#065f46",
+    panel="#059669",
+    dark=True,
+)
+
+AMBER = Theme(
+    name="amber",
+    primary="#fbbf24",
+    secondary="#451a03",
+    accent="#fcd34d",
+    foreground="#fffbeb",
+    background="#110903",
+    success="#f59e0b",
+    warning="#d97706",
+    error="#dc2626",
+    surface="#78350f",
+    panel="#b45309",
+    dark=True,
+)
 
 SYSTEM_PROMPT = """You are Rafeeq, a focused personal assistant dedicated to note-taking and life organization.
 Your goal is to be concise, helpful, and proactive in capturing information.
@@ -32,8 +79,10 @@ Markers:
 - `[COMPLETE_TASK: <id_or_title>]`: Mark a task as completed.
 - `[SEARCH: <query>]`: Search notes and tasks.
 - `[DAILY_BRIEF]`: Get a summary of pending tasks and recent notes.
+- `[TASK_BRIEF]`: Get a natural language summary of only pending tasks.
 
-If you need more information to fulfill a request (e.g., you don't know the ID of a note to delete), PROACTIVELY use the appropriate marker (like `[LIST_NOTES]` or `[SEARCH: <query>]`) to get that information. Do not ask the user for the ID if you can find it yourself using a marker first. Once you receive the observation with the information you need, proceed to fulfill the original request.
+If you need more information to fulfill a request
+ (e.g., you don't know the ID of a note to delete), PROACTIVELY use the appropriate marker (like `[LIST_NOTES]` or `[SEARCH: <query>]`) to get that information. Do not ask the user for the ID if you can find it yourself using a marker first. Once you receive the observation with the information you need, proceed to fulfill the original request.
 
 DO NOT just output the marker. Always follow up with a natural language response after you receive the observation.
 """
@@ -81,27 +130,29 @@ class MessageInput(TextArea):
 
 class RafeeqApp(App):
     TITLE = "Rafeeq"
+    
     CSS = """
     Screen {
-        background: #111113;
-        color: #f4f2f8;
+        background: $background;
+        color: $foreground;
     }
 
     Header {
-        background: #18181c;
-        color: #d8b4fe;
+        background: $secondary;
+        color: $primary;
         text-style: bold;
     }
 
     Footer {
-        background: #18181c;
-        color: #bdb7c8;
+        background: $secondary;
+        color: $foreground;
+        opacity: 0.8;
     }
 
     #app_shell {
         height: 1fr;
         padding: 1 2;
-        background: #111113;
+        background: $background;
     }
 
     #main_layout {
@@ -115,24 +166,24 @@ class RafeeqApp(App):
 
     #chat_area {
         height: 1fr;
-        border: round #d8b4fe;
-        background: #1b1b20;
-        color: #f4f2f8;
+        border: round $primary;
+        background: $surface;
+        color: $foreground;
         padding: 1 2;
-        scrollbar-background: #1b1b20;
-        scrollbar-color: #d8b4fe;
-        scrollbar-color-hover: #e9d5ff;
+        scrollbar-background: $surface;
+        scrollbar-color: $primary;
+        scrollbar-color-hover: $foreground;
     }
 
     #chat_area:focus {
-        border: round #e9d5ff;
+        border: round $foreground;
     }
 
     #sidebar {
         width: 3fr;
         height: 1fr;
-        border: round #4b4258;
-        background: #18181c;
+        border: round $panel;
+        background: $secondary;
         padding: 1;
         margin-left: 1;
     }
@@ -141,11 +192,11 @@ class RafeeqApp(App):
         width: 100%;
         margin-bottom: 1;
         padding: 0 1;
-        background: #1b1b20;
+        background: $surface;
     }
 
     .assistant-message {
-        color: #f4f2f8;
+        color: $foreground;
     }
 
     .user-message {
@@ -153,7 +204,7 @@ class RafeeqApp(App):
     }
 
     .thinking-message {
-        color: #d8b4fe;
+        color: $primary;
         text-style: italic;
         opacity: 0.7;
     }
@@ -161,20 +212,21 @@ class RafeeqApp(App):
     #message_input {
         height: 3;
         margin-top: 1;
-        border: round #4b4258;
+        border: round $panel;
         background: #202027;
-        color: #f4f2f8;
+        color: $foreground;
         padding: 0 1;
     }
 
     #message_input:focus {
-        border: round #d8b4fe;
+        border: round $primary;
     }
-
     """
 
     BINDINGS = [
         Binding("ctrl+c", "copy_selection", "Copy", show=True),
+        Binding("f1", "show_commands", "Commands", show=True),
+        Binding("ctrl+t", "toggle_theme", "Themes", show=True),
         Binding("q", "quit", "Quit", show=True),
     ]
 
@@ -182,6 +234,42 @@ class RafeeqApp(App):
         super().__init__(**kwargs)
         self.storage = storage
         self.ai = ai
+        self.theme_list = ["amethyst", "emerald", "amber"]
+        self.current_theme_index = 0
+
+    def action_toggle_theme(self) -> None:
+        self.current_theme_index = (self.current_theme_index + 1) % len(self.theme_list)
+        new_theme = self.theme_list[self.current_theme_index]
+        self.theme = new_theme
+        self.notify(f"Theme switched to: {new_theme.capitalize()}")
+
+    def action_show_commands(self) -> None:
+        commands_msg = """
+# Rafeeq Commands & Capabilities
+You can interact with Rafeeq using natural language or these specific triggers:
+
+### 🛠️ Navigation & UI
+- **F1**: Show this command menu.
+- **Ctrl+T**: Toggle between UI themes (Amethyst, Emerald, Amber).
+- **Ctrl+C**: Copy selected text.
+- **Q**: Quit the application.
+
+### 🤖 Chat Commands
+- **/brief**: Get a natural language summary of your pending tasks.
+- **"daily brief"**: Get a summary of both tasks and recent notes.
+
+### 💡 Natural Language Examples
+- "Remind me to [title] on [date] at [time]" -> *Automatically schedules a Windows notification!*
+- "Save a note about [content]"
+- "Find [query]" -> *Search through all your notes and tasks.*
+- "I've finished [task_id_or_title]" -> *Marks task as completed.*
+- "List my tasks" or "Show my notes"
+- "Delete note [id]" or "Delete task [id]"
+
+### 🔔 Windows Notifications
+Tasks with a due date will trigger a system notification even if Rafeeq is closed!
+"""
+        self.write_message(commands_msg.strip(), "assistant-message")
 
     def write_message(self, message: str, message_class: str) -> None:
         chat_area = self.query_one("#chat_area", VerticalScroll)
@@ -216,7 +304,41 @@ class RafeeqApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.write_message("Hello! I am your personal AI assistant. How can I help you today?", "assistant-message")
+        # Register custom themes
+        self.register_theme(AMETHYST)
+        self.register_theme(EMERALD)
+        self.register_theme(AMBER)
+        self.theme = "amethyst"
+
+        welcome_msg = """
+# Welcome to Rafeeq! 
+I am your personal AI assistant, designed to be an extension of your mind. Here is how I can assist you:
+
+### 📝 Note Taking
+Simply tell me something you want to remember, and I'll save it as a note. You can search through them later or ask for a summary.
+
+### ✅ Task Management
+I can help you stay on top of your to-dos:
+- **Create**: "Add a task to buy groceries"
+- **Schedule**: "Remind me to call the bank tomorrow at 10am"
+- **Update/Complete**: "I've finished the report" or "Change my 5pm meeting to 6pm"
+- **List**: "What are my pending tasks?"
+
+### 🔔 Smart Reminders
+When you add a task with a due date, I'll automatically schedule a **Windows Notification** to remind you at the exact time.
+
+### 🔍 Intelligent Retrieval
+Ask me to search for anything in your history:
+- "Find my notes about the project launch"
+- "Search for tasks related to travel"
+
+### 📊 Daily Briefings
+Start your day by asking for a **"daily brief"** to get a snapshot of your pending tasks and recent notes.
+
+---
+**How can I help you get started today?**
+"""
+        self.write_message(welcome_msg.strip(), "assistant-message")
         self.query_one("#message_input", TextArea).focus()
 
     def action_copy_selection(self) -> None:
@@ -235,7 +357,13 @@ class RafeeqApp(App):
             self.write_message(user_text, "user-message")
 
             if self.ai:
-                self.run_worker(self.get_ai_response(user_text))
+                # Handle slash commands
+                if user_text.lower() == "/brief":
+                    prompt = "Provide a natural language summary of my current pending tasks using the [TASK_BRIEF] command."
+                else:
+                    prompt = user_text
+                
+                self.run_worker(self.get_ai_response(prompt))
             else:
                 self.write_message("AI Client not initialized. Please check your API key.", "assistant-message")
 

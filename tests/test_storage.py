@@ -1,5 +1,6 @@
 import os
 import pytest
+from unittest.mock import patch, MagicMock
 from rafeeq.storage import StorageManager, Note, Task
 
 TEST_DB = "test_data.json"
@@ -8,8 +9,12 @@ TEST_DB = "test_data.json"
 def storage():
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
-    sm = StorageManager(file_path=TEST_DB)
-    yield sm
+    
+    with patch("rafeeq.storage.WindowsNotificationManager") as mock_notifier:
+        sm = StorageManager(file_path=TEST_DB)
+        sm.mock_notifier = mock_notifier.return_value
+        yield sm
+    
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
 
@@ -104,3 +109,29 @@ def test_daily_summary(storage):
     summary = storage.get_daily_summary()
     assert summary["pending_tasks_count"] == 1
     assert len(summary["recent_notes"]) == 1
+
+def test_task_notification_sync(storage):
+    # Test ADD
+    due_date = "2026-05-16 10:00"
+    task = Task(title="Notify me", due_date=due_date)
+    storage.add_task(task)
+    storage.mock_notifier.schedule_reminder.assert_called_with(task.id, "Notify me", due_date)
+
+    # Test UPDATE title
+    storage.update_task(task.id, title="New Notify me")
+    storage.mock_notifier.schedule_reminder.assert_called_with(task.id, "New Notify me", due_date)
+
+    # Test UPDATE due date
+    new_due = "2026-05-16 11:00"
+    storage.update_task(task.id, due_date=new_due)
+    storage.mock_notifier.schedule_reminder.assert_called_with(task.id, "New Notify me", new_due)
+
+    # Test COMPLETE (should remove reminder)
+    storage.complete_task(task.id)
+    storage.mock_notifier.remove_reminder.assert_called_with(task.id)
+
+    # Test DELETE (should remove reminder)
+    task2 = Task(title="Delete me", due_date=due_date)
+    storage.add_task(task2)
+    storage.delete_task(task2.id)
+    storage.mock_notifier.remove_reminder.assert_called_with(task2.id)

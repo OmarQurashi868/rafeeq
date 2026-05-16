@@ -4,6 +4,7 @@ import secrets
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from rafeeq.notifications import WindowsNotificationManager
 
 def generate_id() -> str:
     return secrets.token_hex(3)
@@ -28,6 +29,7 @@ class StorageManager:
         self.file_path = file_path
         self.data = self._load_data()
         self._migrate_ids()
+        self.notifier = WindowsNotificationManager()
 
     def _load_data(self) -> Dict[str, Any]:
         if os.path.exists(self.file_path):
@@ -79,6 +81,8 @@ class StorageManager:
     def add_task(self, task: Task) -> Task:
         self.data["tasks"].append(asdict(task))
         self.save()
+        if task.due_date and not task.completed:
+            self.notifier.schedule_reminder(task.id, task.title, task.due_date)
         return task
 
     def delete_task(self, task_id: str) -> bool:
@@ -86,6 +90,7 @@ class StorageManager:
         self.data["tasks"] = [t for t in self.data["tasks"] if t["id"] != task_id]
         if len(self.data["tasks"]) < initial_len:
             self.save()
+            self.notifier.remove_reminder(task_id)
             return True
         return False
 
@@ -99,6 +104,13 @@ class StorageManager:
                 if completed is not None:
                     task["completed"] = completed
                 self.save()
+                
+                # Sync notification
+                if task["completed"] or not task["due_date"]:
+                    self.notifier.remove_reminder(task_id)
+                elif task["due_date"]:
+                    self.notifier.schedule_reminder(task_id, task["title"], task["due_date"])
+                
                 return True
         return False
 
@@ -114,6 +126,7 @@ class StorageManager:
             # Support both ID and title for backward compatibility/flexibility
             if task["id"] == identifier or task["title"].lower() == identifier.lower():
                 task["completed"] = True
+                self.notifier.remove_reminder(task["id"])
                 updated = True
         if updated:
             self.save()
