@@ -10,7 +10,7 @@ from textual.message import Message
 
 from rafeeq.storage import StorageManager, Note, Task
 from rafeeq.ai_client import AIClient
-from rafeeq.logic import process_ai_intent
+from rafeeq.logic import execute_intents
 
 SYSTEM_PROMPT = """You are Rafeeq, a focused personal assistant dedicated to note-taking and life organization.
 Your goal is to be concise, helpful, and proactive in capturing information.
