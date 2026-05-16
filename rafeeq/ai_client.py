@@ -1,4 +1,5 @@
 import os
+from typing import List, Dict, Any, Optional
 from openai import APIStatusError, AuthenticationError, OpenAI, RateLimitError
 from dotenv import load_dotenv
 
@@ -23,17 +24,21 @@ class AIClient:
         self.client = OpenAI(**client_kwargs)
         self.provider_name = "Gemini" if is_gemini else "OpenAI"
         self.model = model or os.getenv("AI_MODEL") or os.getenv("OPENAI_MODEL", "gemini-2.5-flash" if is_gemini else "gpt-4o")
+        self.history = []
 
-    def get_response(self, prompt: str, system_message: str = "You are Rafeeq, a helpful personal assistant TUI."):
+    def get_response(self, prompt: Optional[str], system_message: str = "You are Rafeeq, a helpful personal assistant TUI."):
+        if prompt:
+            self.history.append({"role": "user", "content": prompt})
+        
         try:
+            messages = [{"role": "system", "content": system_message}] + self.history
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": prompt}
-                ]
+                messages=messages
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            self.history.append({"role": "assistant", "content": content})
+            return content
         except RateLimitError as e:
             error_code = getattr(e, "code", None)
             message = getattr(e, "message", str(e))
@@ -51,3 +56,9 @@ class AIClient:
             return f"{self.provider_name} API error ({e.status_code}): {message}"
         except Exception as e:
             return f"Error: {str(e)}"
+
+    def add_observation(self, observation: str):
+        self.history.append({"role": "user", "content": f"OBSERVATION: {observation}"})
+
+    def clear_history(self):
+        self.history = []

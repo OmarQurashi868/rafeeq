@@ -1,8 +1,8 @@
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from rafeeq.storage import StorageManager, Note, Task
 
-def process_ai_intent(text: str, storage: StorageManager) -> str:
+def execute_intents(text: str, storage: StorageManager) -> Tuple[str, List[str]]:
     # Regex patterns for markers
     note_pattern = r"\[SAVE_NOTE:\s*(.*?)\]"
     update_note_pattern = r"\[UPDATE_NOTE:\s*([a-f0-9]{6})\s*\|\s*(.*?)\]"
@@ -18,38 +18,38 @@ def process_ai_intent(text: str, storage: StorageManager) -> str:
     search_pattern = r"\[SEARCH:\s*(.*?)\]"
     brief_pattern = r"\[DAILY_BRIEF\]"
 
-    confirmations = []
+    observations = []
 
     # Handle SAVE_NOTE
     notes = re.findall(note_pattern, text)
     for content in notes:
-        storage.add_note(Note(content=content))
-        confirmations.append(f"✅ **Note saved:** {content}")
+        new_note = storage.add_note(Note(content=content))
+        observations.append(f"Note saved with ID [{new_note.id}]")
 
     # Handle UPDATE_NOTE
     note_updates = re.findall(update_note_pattern, text)
     for note_id, content in note_updates:
         if storage.update_note(note_id, content):
-            confirmations.append(f"✅ **Note updated:** [{note_id}] {content}")
+            observations.append(f"Note [{note_id}] updated successfully.")
         else:
-            confirmations.append(f"❌ **Note not found:** {note_id}")
+            observations.append(f"Error: Note [{note_id}] not found.")
 
     # Handle DELETE_NOTE
     note_deletions = re.findall(delete_note_pattern, text)
     for note_id in note_deletions:
         if storage.delete_note(note_id):
-            confirmations.append(f"✅ **Note deleted:** {note_id}")
+            observations.append(f"Note [{note_id}] deleted.")
         else:
-            confirmations.append(f"❌ **Note not found:** {note_id}")
+            observations.append(f"Error: Note [{note_id}] not found.")
 
     # Handle ADD_TASK
     tasks = re.findall(task_pattern, text)
     for title, due_date in tasks:
-        storage.add_task(Task(title=title, due_date=due_date or None))
-        msg = f"✅ **Task added:** {title}"
+        new_task = storage.add_task(Task(title=title, due_date=due_date or None))
+        msg = f"Task added with ID [{new_task.id}]: {title}"
         if due_date:
             msg += f" (Due: {due_date})"
-        confirmations.append(msg)
+        observations.append(msg)
 
     # Handle UPDATE_TASK
     task_updates = re.findall(update_task_pattern, text)
@@ -61,40 +61,40 @@ def process_ai_intent(text: str, storage: StorageManager) -> str:
             completed = completed_str.strip().lower() == "true"
         
         if storage.update_task(task_id, title=title, due_date=due, completed=completed):
-            confirmations.append(f"✅ **Task updated:** {task_id}")
+            observations.append(f"Task [{task_id}] updated successfully.")
         else:
-            confirmations.append(f"❌ **Task not found:** {task_id}")
+            observations.append(f"Error: Task [{task_id}] not found.")
 
     # Handle DELETE_TASK
     task_deletions = re.findall(delete_task_pattern, text)
     for task_id in task_deletions:
         if storage.delete_task(task_id):
-            confirmations.append(f"✅ **Task deleted:** {task_id}")
+            observations.append(f"Task [{task_id}] deleted.")
         else:
-            confirmations.append(f"❌ **Task not found:** {task_id}")
+            observations.append(f"Error: Task [{task_id}] not found.")
 
     # Handle COMPLETE_TASK
     completions = re.findall(complete_task_pattern, text)
     for identifier in completions:
         if storage.complete_task(identifier):
-            confirmations.append(f"✅ **Task completed:** {identifier}")
+            observations.append(f"Task [{identifier}] marked as completed.")
         else:
-            confirmations.append(f"❌ **Task not found:** {identifier}")
+            observations.append(f"Error: Task [{identifier}] not found.")
 
     # Handle LIST_NOTES
     if re.search(list_notes_pattern, text):
         all_notes = storage.get_notes()
         if not all_notes:
-            text += "\n\n*No notes found.*"
+            observations.append("No notes found.")
         else:
             notes_list = "\n".join([f"- `[{n['id']}]` {n['content']} *({n['timestamp'][:10]})*" for n in all_notes])     
-            text += f"\n\n### Your Notes\n{notes_list}"
+            observations.append(f"Notes list:\n{notes_list}")
 
     # Handle LIST_TASKS
     if re.search(list_tasks_pattern, text):
         all_tasks = storage.get_tasks()
         if not all_tasks:
-            text += "\n\n*No tasks found.*"
+            observations.append("No tasks found.")
         else:
             tasks_list = []
             for t in all_tasks:
@@ -102,35 +102,34 @@ def process_ai_intent(text: str, storage: StorageManager) -> str:
                 if t.get('due_date'):
                     line += f" * (Due: {t['due_date']})*"
                 tasks_list.append(line)
-
-            text += f"\n\n### Your Tasks\n" + "\n".join(tasks_list)
+            observations.append(f"Tasks list:\n" + "\n".join(tasks_list))
 
     # Handle SEARCH
     search_queries = re.findall(search_pattern, text)
     for query in search_queries:
         results = storage.search(query)
-        res_text = f"\n\n### Search Results for '{query}'"
+        res_text = f"Search results for '{query}':"
         if not results["notes"] and not results["tasks"]:
-            res_text += "\n*No results found.*"
+            res_text += " No results found."
         else:
             if results["notes"]:
-                res_text += "\n**Notes:**\n" + "\n".join([f"- {n['content']}" for n in results["notes"]])
+                res_text += "\nNotes:\n" + "\n".join([f"- `[{n['id']}]` {n['content']}" for n in results["notes"]])
             if results["tasks"]:
-                res_text += "\n**Tasks:**\n" + "\n".join([f"- [{'x' if t['completed'] else ' '}] {t['title']}" for t in results["tasks"]])
-        text += res_text
+                res_text += "\nTasks:\n" + "\n".join([f"- `[{t['id']}]` [{'x' if t['completed'] else ' '}] {t['title']}" for t in results["tasks"]])
+        observations.append(res_text)
 
     # Handle DAILY_BRIEF
     if re.search(brief_pattern, text):
         summary = storage.get_daily_summary()
-        brief_text = f"\n\n### Daily Briefing\n"
-        brief_text += f"You have **{summary['pending_tasks_count']}** pending tasks.\n"
+        brief_text = f"Daily Briefing:\n"
+        brief_text += f"Pending tasks: {summary['pending_tasks_count']}\n"
         if summary["pending_tasks"]:
-            tasks_list = "\n".join([f"- {t['title']}" for t in summary["pending_tasks"][:3]])
-            brief_text += f"**Key Tasks:**\n{tasks_list}\n"
+            tasks_list = "\n".join([f"- `[{t['id']}]` {t['title']}" for t in summary["pending_tasks"][:5]])
+            brief_text += f"Key Tasks:\n{tasks_list}\n"
         if summary["recent_notes"]:
-            notes_list = "\n".join([f"- {n['content']}" for n in summary["recent_notes"][:3]])
-            brief_text += f"**Recent Notes:**\n{notes_list}"
-        text += brief_text
+            notes_list = "\n".join([f"- `[{n['id']}]` {n['content']}" for n in summary["recent_notes"][:5]])
+            brief_text += f"Recent Notes:\n{notes_list}"
+        observations.append(brief_text)
 
     # Clean up markers from the final text
     text = re.sub(note_pattern, "", text)
@@ -145,12 +144,4 @@ def process_ai_intent(text: str, storage: StorageManager) -> str:
     text = re.sub(search_pattern, "", text)
     text = re.sub(brief_pattern, "", text)
 
-    text = text.strip()
-
-    # Append confirmations at the end
-    if confirmations:
-        if text:
-            text += "\n\n"
-        text += "\n".join(confirmations)
-
-    return text
+    return text.strip(), observations

@@ -55,9 +55,10 @@ class StorageManager:
         with open(self.file_path, "w") as f:
             json.dump(self.data, f, indent=4)
 
-    def add_note(self, note: Note):
+    def add_note(self, note: Note) -> Note:
         self.data["notes"].append(asdict(note))
         self.save()
+        return note
 
     def delete_note(self, note_id: str) -> bool:
         initial_len = len(self.data["notes"])
@@ -75,9 +76,10 @@ class StorageManager:
                 return True
         return False
 
-    def add_task(self, task: Task):
+    def add_task(self, task: Task) -> Task:
         self.data["tasks"].append(asdict(task))
         self.save()
+        return task
 
     def delete_task(self, task_id: str) -> bool:
         initial_len = len(self.data["tasks"])

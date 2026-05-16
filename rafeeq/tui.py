@@ -236,18 +236,41 @@ class RafeeqApp(App):
         current_time = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
         dynamic_system_prompt = f"{SYSTEM_PROMPT}\n\nCurrent context: The date and time is {current_time}."
 
-        response = await asyncio.to_thread(self.ai.get_response, user_text, system_message=dynamic_system_prompt)      
+        max_turns = 3
+        turn = 0
+        prompt = user_text
 
-        # Process intents and clean response
-        clean_response = self.process_ai_intent(response)
-        if clean_response:
-            self.write_message(clean_response, "assistant-message")
-        
-        # Update sidebar in case tasks changed
-        self.query_one(TaskSidebar).update_tasks()
+        while turn < max_turns:
+            response = await asyncio.to_thread(self.ai.get_response, prompt, system_message=dynamic_system_prompt)
+            
+            # Process intents and get observations
+            clean_text, observations = execute_intents(response, self.storage)
+            
+            # If there was text besides markers, show it if it's the final response
+            # Or if we want to show intermediate thoughts (Rafeeq is usually concise though)
+            
+            if not observations:
+                # Final response from AI
+                if clean_text:
+                    self.write_message(clean_text, "assistant-message")
+                break
+            
+            # Add observations to history and loop for a natural language follow-up
+            for obs in observations:
+                self.ai.add_observation(obs)
+            
+            # Update sidebar in case tasks changed
+            self.query_one(TaskSidebar).update_tasks()
+            
+            # Next call to AI will be to react to observations
+            prompt = None 
+            turn += 1
 
     def process_ai_intent(self, text: str) -> str:
-        return process_ai_intent(text, self.storage)
+        # This is now handled inside get_ai_response loop, 
+        # but kept for backward compatibility if needed elsewhere
+        clean_text, _ = execute_intents(text, self.storage)
+        return clean_text
 
 if __name__ == "__main__":
     storage = StorageManager()
