@@ -80,6 +80,7 @@ class MessageInput(TextArea):
         self.styles.height = min(6, line_count + 2)
 
 class RafeeqApp(App):
+    TITLE = "Rafeeq"
     CSS = """
     Screen {
         background: #111113;
@@ -199,9 +200,7 @@ class RafeeqApp(App):
             pass
 
     def compose(self) -> ComposeResult:
-        header = Header(show_clock=True)
-        header.screen_title = "Rafeeq"
-        yield header
+        yield Header(show_clock=True)
         with Container(id="app_shell"):
             with Horizontal(id="main_layout"):
                 with Container(id="chat_container"):
