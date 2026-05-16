@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import secrets
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -42,13 +43,30 @@ class StorageManager:
 
     def _migrate_ids(self):
         updated = False
-        for note in self.data.get("notes", []):
+        from datetime import timedelta
+        # Use a fixed baseline to ensure sequential timestamps for legacy items
+        baseline = datetime.now()
+        
+        notes = self.data.get("notes", [])
+        for i, note in enumerate(notes):
             if "id" not in note:
                 note["id"] = generate_id()
                 updated = True
-        for task in self.data.get("tasks", []):
+            if "timestamp" not in note:
+                # Legacy items are assigned timestamps in the order they appear, 
+                # but slightly separated to ensure stable sorting.
+                ts = (baseline - timedelta(days=365) + timedelta(seconds=i)).isoformat()
+                note["timestamp"] = ts
+                updated = True
+        
+        tasks = self.data.get("tasks", [])
+        for i, task in enumerate(tasks):
             if "id" not in task:
                 task["id"] = generate_id()
+                updated = True
+            if "timestamp" not in task:
+                ts = (baseline - timedelta(days=365) + timedelta(seconds=i)).isoformat()
+                task["timestamp"] = ts
                 updated = True
         if updated:
             self.save()
@@ -113,6 +131,81 @@ class StorageManager:
                 
                 return True
         return False
+
+    def get_indexed_items(self, category: str, include_completed: bool = True) -> List[Dict[str, Any]]:
+        """Returns items in category sorted by timestamp with a 1-based index. 
+        Optionally filters out completed tasks for compact numbering."""
+        items = self.data.get(category, [])
+        if category == "tasks" and not include_completed:
+            items = [t for t in items if not t.get("completed", False)]
+            
+        # Sort by timestamp (oldest first)
+        sorted_items = sorted(items, key=lambda x: x.get("timestamp", ""))
+        results = []
+        for i, item in enumerate(sorted_items, 1):
+            item_copy = item.copy()
+            item_copy["index"] = i
+            results.append(item_copy)
+        return results
+
+    def resolve_indices(self, category: str, selector: str) -> List[str]:
+        """
+        Parses numeric selector (e.g. '1', '1-3', '1,2,5') into internal hex IDs.
+        For tasks, defaults to PENDING items for compact numbering consistency.
+        Returns a list of matching hex IDs.
+        """
+        # If it's tasks, we try to resolve against pending tasks first as that's 
+        # what the user usually sees in the sidebar/brief.
+        include_completed = False
+        if "all" in selector.lower():
+             include_completed = True
+             selector = selector.lower().replace("all", "").strip()
+
+        indexed_items = self.get_indexed_items(category, include_completed=include_completed)
+        resolved_ids = []
+        
+        # Pre-process common natural language range words
+        clean_selector = selector.lower().replace(" through ", "-").replace(" to ", "-")
+        parts = [p.strip() for p in clean_selector.split(",")]
+        
+        for part in parts:
+            if not part: continue
+            if "-" in part:
+                try:
+                    start_str, end_str = part.split("-", 1)
+                    start_num_str = re.sub(r"\D", "", start_str)
+                    end_num_str = re.sub(r"\D", "", end_str)
+                    if not start_num_str or not end_num_str:
+                        continue
+                    start = int(start_num_str)
+                    end = int(end_num_str)
+                    for i in range(min(start, end), max(start, end) + 1):
+                        if 1 <= i <= len(indexed_items):
+                            resolved_ids.append(indexed_items[i-1]["id"])
+                except (ValueError, IndexError):
+                    continue
+            else:
+                try:
+                    numeric_match = re.search(r"(\d+)", part)
+                    if numeric_match:
+                        idx = int(numeric_match.group(1))
+                        if 1 <= idx <= len(indexed_items):
+                            resolved_ids.append(indexed_items[idx-1]["id"])
+                        else:
+                            # Fallback: maybe they meant the index in the FULL list?
+                            if not include_completed and category == "tasks":
+                                full_items = self.get_indexed_items(category, include_completed=True)
+                                if 1 <= idx <= len(full_items):
+                                    resolved_ids.append(full_items[idx-1]["id"])
+                    else:
+                        # Fallback: check if it's a hex ID or title match
+                        for item in self.data.get(category, []):
+                            if item["id"] == part or (category == "tasks" and item["title"].lower() == part.lower()):
+                                resolved_ids.append(item["id"])
+                except ValueError:
+                    continue
+        
+        return list(dict.fromkeys(resolved_ids))
 
     def get_notes(self) -> List[Dict[str, Any]]:
         return self.data.get("notes", [])

@@ -63,26 +63,27 @@ SYSTEM_PROMPT = """You are Rafeeq, a focused personal assistant dedicated to not
 Your goal is to be concise, helpful, and proactive in capturing information.
 Avoid general-purpose chatter; stay focused on being the user's external brain.
 
-When listing notes or tasks, ALWAYS include their 6-character unique ID in square brackets, e.g., `[abc123]`.
+When referring to notes or tasks, ALWAYS use their display number (e.g., Note 1, Task 5) instead of internal IDs. The system will map these numbers to the correct items. You can also perform bulk operations using ranges (e.g., "1-3") or lists (e.g., "1, 4").
 
 You have access to several commands via markers. When you use a marker, the system will execute it and provide you with an `OBSERVATION`. You should then use that observation to provide a final natural language response to the user.
 
 Markers:
 - `[SAVE_NOTE: <content>]`: Save a new note.
-- `[UPDATE_NOTE: <id> | <new_content>]`: Update an existing note.
-- `[DELETE_NOTE: <id>]`: Delete a note.
-- `[ADD_TASK: <title> | DUE: <YYYY-MM-DD HH:MM>]`: Add a task (DUE is optional).
-- `[UPDATE_TASK: <id> | TITLE: <new_title> | DUE: <new_due> | COMPLETED: <true/false>]`: Update a task.
-- `[DELETE_TASK: <id>]`: Delete a task.
+- `[UPDATE_NOTE: <number> | <new_content>]`: Update an existing note.
+- `[DELETE_NOTE: <number_or_range>]`: Delete note(s).
+- `[ADD_TASK: <title> | DUE: <YYYY-MM-DD HH:MM:SS>]`: Add a task (DUE is optional, use seconds for precision).
+- `[UPDATE_TASK: <number> | TITLE: <new_title> | DUE: <new_due> | COMPLETED: <true/false>]`: Update a task.
+- `[DELETE_TASK: <number_or_range>]`: Delete task(s).
 - `[LIST_NOTES]`: List all notes.
 - `[LIST_TASKS]`: List all tasks.
-- `[COMPLETE_TASK: <id_or_title>]`: Mark a task as completed.
+- `[COMPLETE_TASK: <number_or_range_or_title>]`: Mark task(s) as completed.
 - `[SEARCH: <query>]`: Search notes and tasks.
 - `[DAILY_BRIEF]`: Get a summary of pending tasks and recent notes.
 - `[TASK_BRIEF]`: Get a natural language summary of only pending tasks.
 
-If you need more information to fulfill a request
- (e.g., you don't know the ID of a note to delete), PROACTIVELY use the appropriate marker (like `[LIST_NOTES]` or `[SEARCH: <query>]`) to get that information. Do not ask the user for the ID if you can find it yourself using a marker first. Once you receive the observation with the information you need, proceed to fulfill the original request.
+If a user asks for a relative reminder (e.g., "in 1 minute"), calculate the exact time including seconds based on the current context time.
+
+If you need more information to fulfill a request (e.g., you don't know the number of a note to delete), PROACTIVELY use the appropriate marker (like `[LIST_NOTES]` or `[SEARCH: <query>]`) to get that information. Do not ask the user for the number if you can find it yourself using a marker first. Once you receive the observation with the information you need, proceed to fulfill the original request.
 
 DO NOT just output the marker. Always follow up with a natural language response after you receive the observation.
 """
@@ -97,13 +98,13 @@ class TaskSidebar(VerticalScroll):
 
     def update_tasks(self) -> None:
         self.query("Markdown").remove()
-        tasks = self.storage.get_tasks()
-        pending = [t for t in tasks if not t["completed"]]
+        # Use compact indexing (exclude completed) to ensure 1, 2, 3... sequence
+        pending = self.storage.get_indexed_items("tasks", include_completed=False)
 
         if not pending:
             self.mount(Markdown("*No pending tasks*"))
         else:
-            task_list = "\n".join([f"- `[{t['id']}]` {t['title']}" for t in pending])
+            task_list = "\n".join([f"- **{t['index']}.** {t['title']}" for t in pending])
             self.mount(Markdown(f"### Pending Tasks\n{task_list}"))
 
 class MessageInput(TextArea):
@@ -262,9 +263,9 @@ You can interact with Rafeeq using natural language or these specific triggers:
 - "Remind me to [title] on [date] at [time]" -> *Automatically schedules a Windows notification!*
 - "Save a note about [content]"
 - "Find [query]" -> *Search through all your notes and tasks.*
-- "I've finished [task_id_or_title]" -> *Marks task as completed.*
+- "I've finished task 1" or "Complete tasks 2 through 5" -> *Marks tasks as completed.*
 - "List my tasks" or "Show my notes"
-- "Delete note [id]" or "Delete task [id]"
+- "Delete note 1" or "Delete tasks 1, 3, 5"
 
 ### 🔔 Windows Notifications
 Tasks with a due date will trigger a system notification even if Rafeeq is closed!
@@ -321,7 +322,7 @@ Simply tell me something you want to remember, and I'll save it as a note. You c
 I can help you stay on top of your to-dos:
 - **Create**: "Add a task to buy groceries"
 - **Schedule**: "Remind me to call the bank tomorrow at 10am"
-- **Update/Complete**: "I've finished the report" or "Change my 5pm meeting to 6pm"
+- **Update/Complete**: "I've finished task 1" or "Mark tasks 2-4 as done"
 - **List**: "What are my pending tasks?"
 
 ### 🔔 Smart Reminders
@@ -371,7 +372,7 @@ Start your day by asking for a **"daily brief"** to get a snapshot of your pendi
             message_input.fit_content_height()
 
     async def get_ai_response(self, user_text: str) -> None:
-        current_time = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+        current_time = datetime.now().strftime("%A, %B %d, %Y at %I:%M:%S %p")
         dynamic_system_prompt = f"{SYSTEM_PROMPT}\n\nCurrent context: The date and time is {current_time}."
 
         max_turns = 3
