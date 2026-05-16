@@ -9,16 +9,19 @@ Build a personal AI assistant TUI ("Rafeeq") for the LOS Hackathon that manages 
 - **TUI Design:** Design a multi-pane layout (e.g., chat area, task sidebar, status bar).
 - **AI Integration:** Setup Gemini API access using the OpenAI-compatible client for natural language processing.
 
-## Phase 2: Core Features (Must-Haves)
-- **Storage Layer:** Implement a simple JSON-based storage for notes and tasks to ensure portability.
-- **Conversational Engine:** Create a loop where the user can type natural language, and the agent extracts intent (e.g., "Remind me to buy milk" -> Task creation).
-- **Note Taking:** Implement commands/logic to save and categorize thoughts.
-- **Task Management:** Implement CRUD operations for tasks (create, list, update, complete).
+## Phase 2: Core Features (Must-Haves) [COMPLETE]
+- **Storage Layer:** Implement a simple JSON-based storage for notes and tasks.
+- **Conversational Engine:** Create a loop for natural language intent extraction.
+- **Note Taking:** Implement logic to save and categorize thoughts.
+- **Task Management:** Implement CRUD operations for tasks.
+- **Testing:** Unit tests for storage and intent logic.
 
-## Phase 3: Enhanced Features (Should-Haves)
-- **Intelligent Retrieval:** Use natural language to query own notes and task history.
-- **Daily Briefing:** A `brief` command that summarizes pending tasks and recent notes.
+## Phase 3: Enhanced Features (Should-Haves) [IN PROGRESS]
+- **Intelligent Retrieval:** [COMPLETE] Keyword search for notes and tasks.
+- **Daily Briefing:** [COMPLETE] Summary of pending tasks and recent notes.
+- **TUI Immersive Upgrade:** [COMPLETE] Dedicated task sidebar and split layout.
 - **Reminders:** Basic time-based alerts.
+- **Advanced Retrieval:** Semantic search or vector-based retrieval (future).
 
 ## Phase 4: Refinement & Demo Prep
 - **UX Polish:** Ensure clear output, help commands, and robust error handling.
