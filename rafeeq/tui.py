@@ -151,6 +151,12 @@ class RafeeqApp(App):
         color: #9b94a8;
     }
 
+    .thinking-message {
+        color: #d8b4fe;
+        text-style: italic;
+        opacity: 0.7;
+    }
+
     #message_input {
         height: 3;
         margin-top: 1;
@@ -181,8 +187,21 @@ class RafeeqApp(App):
         chat_area.mount(Markdown(message, classes=f"message {message_class}", open_links=False))
         chat_area.scroll_end(animate=False)
 
+    def show_thinking(self) -> None:
+        chat_area = self.query_one("#chat_area", VerticalScroll)
+        chat_area.mount(Markdown("Rafeeq is thinking...", id="thinking_msg", classes="message thinking-message"))
+        chat_area.scroll_end(animate=False)
+
+    def hide_thinking(self) -> None:
+        try:
+            self.query_one("#thinking_msg").remove()
+        except Exception:
+            pass
+
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        header = Header(show_clock=True)
+        header.screen_title = "Rafeeq"
+        yield header
         with Container(id="app_shell"):
             with Horizontal(id="main_layout"):
                 with Container(id="chat_container"):
@@ -232,31 +251,37 @@ class RafeeqApp(App):
         turn = 0
         prompt = user_text
 
-        while turn < max_turns:
-            response = await asyncio.to_thread(self.ai.get_response, prompt, system_message=dynamic_system_prompt)
+        self.show_thinking()
+        try:
+            while turn < max_turns:
+                response = await asyncio.to_thread(self.ai.get_response, prompt, system_message=dynamic_system_prompt)
 
-            # Process intents and get observations
-            clean_text, observations = execute_intents(response, self.storage)
+                # Process intents and get observations
+                clean_text, observations = execute_intents(response, self.storage)
 
-            # If there was text besides markers, show it if it's the final response
-            # Or if we want to show intermediate thoughts (Rafeeq is usually concise though)
+                if not observations:
+                    # Final response from AI
+                    self.hide_thinking()
+                    if clean_text:
+                        self.write_message(clean_text, "assistant-message")
+                    break
 
-            if not observations:
-                # Final response from AI
-                if clean_text:
-                    self.write_message(clean_text, "assistant-message")
-                break
+                # Add observations to history and loop for a natural language follow-up
+                for obs in observations:
+                    self.ai.add_observation(obs)
 
-            # Add observations to history and loop for a natural language follow-up
-            for obs in observations:
-                self.ai.add_observation(obs)
+                # Update sidebar in case tasks changed
+                self.query_one(TaskSidebar).update_tasks()
 
-            # Update sidebar in case tasks changed
-            self.query_one(TaskSidebar).update_tasks()
-
-            # Next call to AI will be to react to observations
-            prompt = None
-            turn += 1
+                # Next call to AI will be to react to observations
+                prompt = None
+                turn += 1
+            else:
+                # Hit max turns
+                self.hide_thinking()
+        except Exception as e:
+            self.hide_thinking()
+            self.write_message(f"Error getting response: {str(e)}", "assistant-message")
 
     def process_ai_intent(self, text: str) -> str:
         # This is now handled inside get_ai_response loop,
