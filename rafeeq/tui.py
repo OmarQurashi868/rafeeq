@@ -18,32 +18,24 @@ Avoid general-purpose chatter; stay focused on being the user's external brain.
 
 When listing notes or tasks, ALWAYS include their 6-character unique ID in square brackets, e.g., `[abc123]`.
 
-When the user wants to save a note:
-- Include `[SAVE_NOTE: <content>]` in your response.
-When the user wants to update a note:
-- Include `[UPDATE_NOTE: <id> | <new_content>]` in your response.
-When the user wants to delete a note:
-- Include `[DELETE_NOTE: <id>]` in your response.
+You have access to several commands via markers. When you use a marker, the system will execute it and provide you with an `OBSERVATION`. You should then use that observation to provide a final natural language response to the user.
 
-When the user wants to add a task:
-- Include `[ADD_TASK: <title> | DUE: <YYYY-MM-DD HH:MM>]` in your response (DUE is optional).
-When the user wants to update a task:
-- Include `[UPDATE_TASK: <id> | TITLE: <new_title> | DUE: <new_due> | COMPLETED: <true/false>]` in your response.
-- Only include the fields that need to be changed.
-When the user wants to delete a task:
-- Include `[DELETE_TASK: <id>]` in your response.
+Markers:
+- `[SAVE_NOTE: <content>]`: Save a new note.
+- `[UPDATE_NOTE: <id> | <new_content>]`: Update an existing note.
+- `[DELETE_NOTE: <id>]`: Delete a note.
+- `[ADD_TASK: <title> | DUE: <YYYY-MM-DD HH:MM>]`: Add a task (DUE is optional).
+- `[UPDATE_TASK: <id> | TITLE: <new_title> | DUE: <new_due> | COMPLETED: <true/false>]`: Update a task.
+- `[DELETE_TASK: <id>]`: Delete a task.
+- `[LIST_NOTES]`: List all notes.
+- `[LIST_TASKS]`: List all tasks.
+- `[COMPLETE_TASK: <id_or_title>]`: Mark a task as completed.
+- `[SEARCH: <query>]`: Search notes and tasks.
+- `[DAILY_BRIEF]`: Get a summary of pending tasks and recent notes.
 
-When the user wants to see their notes:
-- Include `[LIST_NOTES]` in your response.
-When the user wants to see their tasks:
-- Include `[LIST_TASKS]` in your response.
-When the user wants to mark a task as completed:
-- Include `[COMPLETE_TASK: <id_or_title>]` in your response.
+If you need more information to fulfill a request (e.g., you don't know the ID of a note to delete), PROACTIVELY use the appropriate marker (like `[LIST_NOTES]` or `[SEARCH: <query>]`) to get that information. Do not ask the user for the ID if you can find it yourself using a marker first. Once you receive the observation with the information you need, proceed to fulfill the original request.
 
-When the user wants to search:
-- Include `[SEARCH: <query>]` in your response.
-When the user wants a summary:
-- Include `[DAILY_BRIEF]` in your response.
+DO NOT just output the marker. Always follow up with a natural language response after you receive the observation.
 """
 
 class TaskSidebar(VerticalScroll):
@@ -58,7 +50,7 @@ class TaskSidebar(VerticalScroll):
         self.query("Markdown").remove()
         tasks = self.storage.get_tasks()
         pending = [t for t in tasks if not t["completed"]]
-        
+
         if not pending:
             self.mount(Markdown("*No pending tasks*"))
         else:
@@ -223,12 +215,12 @@ class RafeeqApp(App):
         user_text = message_input.text.strip()
         if user_text:
             self.write_message(user_text, "user-message")
-            
+
             if self.ai:
                 self.run_worker(self.get_ai_response(user_text))
             else:
                 self.write_message("AI Client not initialized. Please check your API key.", "assistant-message")
-            
+
             message_input.clear()
             message_input.fit_content_height()
 
@@ -242,32 +234,32 @@ class RafeeqApp(App):
 
         while turn < max_turns:
             response = await asyncio.to_thread(self.ai.get_response, prompt, system_message=dynamic_system_prompt)
-            
+
             # Process intents and get observations
             clean_text, observations = execute_intents(response, self.storage)
-            
+
             # If there was text besides markers, show it if it's the final response
             # Or if we want to show intermediate thoughts (Rafeeq is usually concise though)
-            
+
             if not observations:
                 # Final response from AI
                 if clean_text:
                     self.write_message(clean_text, "assistant-message")
                 break
-            
+
             # Add observations to history and loop for a natural language follow-up
             for obs in observations:
                 self.ai.add_observation(obs)
-            
+
             # Update sidebar in case tasks changed
             self.query_one(TaskSidebar).update_tasks()
-            
+
             # Next call to AI will be to react to observations
-            prompt = None 
+            prompt = None
             turn += 1
 
     def process_ai_intent(self, text: str) -> str:
-        # This is now handled inside get_ai_response loop, 
+        # This is now handled inside get_ai_response loop,
         # but kept for backward compatibility if needed elsewhere
         clean_text, _ = execute_intents(text, self.storage)
         return clean_text
@@ -278,6 +270,6 @@ if __name__ == "__main__":
         ai = AIClient()
     except ValueError:
         ai = None # Handle case where API key is missing for simple UI test
-    
+
     app = RafeeqApp(storage=storage, ai=ai)
     app.run()
