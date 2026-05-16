@@ -4,33 +4,68 @@ from datetime import datetime
 
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Markdown, TextArea
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container, VerticalScroll, Horizontal
 from textual.binding import Binding
 from textual.message import Message
 
 from rafeeq.storage import StorageManager, Note, Task
 from rafeeq.ai_client import AIClient
+from rafeeq.logic import process_ai_intent
 
 SYSTEM_PROMPT = """You are Rafeeq, a focused personal assistant dedicated to note-taking and life organization.
 Your goal is to be concise, helpful, and proactive in capturing information.
 Avoid general-purpose chatter; stay focused on being the user's external brain.
 
-When the user wants to save a note or remember something:
+When listing notes or tasks, ALWAYS include their 6-character unique ID in square brackets, e.g., `[abc123]`.
+
+When the user wants to save a note:
 - Include `[SAVE_NOTE: <content>]` in your response.
-When the user wants to add a task or to-do item:
-- Include `[ADD_TASK: <title> | DUE: <YYYY-MM-DD HH:MM>]` in your response. 
-- The `| DUE: ...` part is optional; only include it if the user specifies a time or date.
-- Use the current context provided to resolve relative dates like 'tomorrow' or 'next week'.
+When the user wants to update a note:
+- Include `[UPDATE_NOTE: <id> | <new_content>]` in your response.
+When the user wants to delete a note:
+- Include `[DELETE_NOTE: <id>]` in your response.
+
+When the user wants to add a task:
+- Include `[ADD_TASK: <title> | DUE: <YYYY-MM-DD HH:MM>]` in your response (DUE is optional).
+When the user wants to update a task:
+- Include `[UPDATE_TASK: <id> | TITLE: <new_title> | DUE: <new_due> | COMPLETED: <true/false>]` in your response.
+- Only include the fields that need to be changed.
+When the user wants to delete a task:
+- Include `[DELETE_TASK: <id>]` in your response.
+
 When the user wants to see their notes:
 - Include `[LIST_NOTES]` in your response.
 When the user wants to see their tasks:
 - Include `[LIST_TASKS]` in your response.
-When the user wants to mark a task as completed or done:
-- Include `[COMPLETE_TASK: <title>]` in your response.
+When the user wants to mark a task as completed:
+- Include `[COMPLETE_TASK: <id_or_title>]` in your response.
+
+When the user wants to search:
+- Include `[SEARCH: <query>]` in your response.
+When the user wants a summary:
+- Include `[DAILY_BRIEF]` in your response.
 """
 
+class TaskSidebar(VerticalScroll):
+    def __init__(self, storage: StorageManager, **kwargs):
+        super().__init__(**kwargs)
+        self.storage = storage
+
+    def on_mount(self) -> None:
+        self.update_tasks()
+
+    def update_tasks(self) -> None:
+        self.query("Markdown").remove()
+        tasks = self.storage.get_tasks()
+        pending = [t for t in tasks if not t["completed"]]
+        
+        if not pending:
+            self.mount(Markdown("*No pending tasks*"))
+        else:
+            task_list = "\n".join([f"- `[{t['id']}]` {t['title']}" for t in pending])
+            self.mount(Markdown(f"### Pending Tasks\n{task_list}"))
+
 class MessageInput(TextArea):
-# ... (rest of the class)
     BINDINGS = [
         Binding("enter", "submit", show=False, priority=True),
         Binding("shift+enter", "newline", show=False, priority=True),
@@ -76,6 +111,15 @@ class RafeeqApp(App):
         background: #111113;
     }
 
+    #main_layout {
+        height: 1fr;
+    }
+
+    #chat_container {
+        width: 7fr;
+        height: 1fr;
+    }
+
     #chat_area {
         height: 1fr;
         border: round #d8b4fe;
@@ -89,6 +133,15 @@ class RafeeqApp(App):
 
     #chat_area:focus {
         border: round #e9d5ff;
+    }
+
+    #sidebar {
+        width: 3fr;
+        height: 1fr;
+        border: round #4b4258;
+        background: #18181c;
+        padding: 1;
+        margin-left: 1;
     }
 
     .message {
@@ -139,14 +192,17 @@ class RafeeqApp(App):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Container(id="app_shell"):
-            yield VerticalScroll(id="chat_area")
-            yield MessageInput(
-                "",
-                id="message_input",
-                show_line_numbers=False,
-                soft_wrap=True,
-                placeholder="Talk to Rafeeq...",
-            )
+            with Horizontal(id="main_layout"):
+                with Container(id="chat_container"):
+                    yield VerticalScroll(id="chat_area")
+                    yield MessageInput(
+                        "",
+                        id="message_input",
+                        show_line_numbers=False,
+                        soft_wrap=True,
+                        placeholder="Talk to Rafeeq...",
+                    )
+                yield TaskSidebar(self.storage, id="sidebar")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -186,80 +242,13 @@ class RafeeqApp(App):
         clean_response = self.process_ai_intent(response)
         if clean_response:
             self.write_message(clean_response, "assistant-message")
+        
+        # Update sidebar in case tasks changed
+        self.query_one(TaskSidebar).update_tasks()
 
     def process_ai_intent(self, text: str) -> str:
-        # Regex patterns for markers
-        note_pattern = r"\[SAVE_NOTE:\s*(.*?)\]"
-        task_pattern = r"\[ADD_TASK:\s*(.*?)(?:\s*\|\s*DUE:\s*(.*?))?\]"
-        complete_task_pattern = r"\[COMPLETE_TASK:\s*(.*?)\]"
-        list_notes_pattern = r"\[LIST_NOTES\]"
-        list_tasks_pattern = r"\[LIST_TASKS\]"
+        return process_ai_intent(text, self.storage)
 
-        confirmations = []
-
-        # Handle SAVE_NOTE
-        notes = re.findall(note_pattern, text)
-        for content in notes:
-            self.storage.add_note(Note(content=content))
-            confirmations.append(f"✅ **Note saved:** {content}")
-
-        # Handle ADD_TASK
-        tasks = re.findall(task_pattern, text)
-        for title, due_date in tasks:
-            self.storage.add_task(Task(title=title, due_date=due_date or None))
-            msg = f"✅ **Task added:** {title}"
-            if due_date:
-                msg += f" (Due: {due_date})"
-            confirmations.append(msg)
-
-        # Handle COMPLETE_TASK
-        completions = re.findall(complete_task_pattern, text)
-        for title in completions:
-            if self.storage.complete_task(title):
-                confirmations.append(f"✅ **Task completed:** {title}")
-            else:
-                confirmations.append(f"❌ **Task not found:** {title}")
-
-        # Handle LIST_NOTES
-        if re.search(list_notes_pattern, text):
-            all_notes = self.storage.get_notes()
-            if not all_notes:
-                text += "\n\n*No notes found.*"
-            else:
-                notes_list = "\n".join([f"- {n['content']} *({n['timestamp'][:10]})*" for n in all_notes])     
-                text += f"\n\n### Your Notes\n{notes_list}"
-
-        # Handle LIST_TASKS
-        if re.search(list_tasks_pattern, text):
-            all_tasks = self.storage.get_tasks()
-            if not all_tasks:
-                text += "\n\n*No tasks found.*"
-            else:
-                tasks_list = []
-                for t in all_tasks:
-                    line = f"- [{'x' if t['completed'] else ' '}] {t['title']}"
-                    if t.get('due_date'):
-                        line += f" * (Due: {t['due_date']})*"
-                    tasks_list.append(line)
-
-                text += f"\n\n### Your Tasks\n" + "\n".join(tasks_list)
-
-        # Clean up markers from the final text
-        text = re.sub(note_pattern, "", text)
-        text = re.sub(task_pattern, "", text)
-        text = re.sub(complete_task_pattern, "", text)
-        text = re.sub(list_notes_pattern, "", text)
-        text = re.sub(list_tasks_pattern, "", text)
-
-        text = text.strip()
-
-        # Append confirmations at the end
-        if confirmations:
-            if text:
-                text += "\n\n"
-            text += "\n".join(confirmations)
-
-        return text
 if __name__ == "__main__":
     storage = StorageManager()
     try:

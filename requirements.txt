@@ -2,3 +2,4 @@ textual
 openai
 python-dotenv
 rich
+pytest
